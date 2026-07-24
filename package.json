@@ -1,0 +1,29 @@
+{
+  "name": "multi-agent-orchestrator",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PM-worker multi-agent orchestrator driving 5 MiniMax accounts in parallel via Claude Agent SDK",
+  "scripts": {
+    "smoke": "tsx src/smoke.ts",
+    "start": "tsx src/orchestrator.ts",
+    "server": "tsx src/server/app.ts",
+    "web": "vite --config web/vite.config.ts",
+    "web:build": "vite build --config web/vite.config.ts",
+    "dev": "tsx scripts/dev.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.217",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "dotenv": "^16.4.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.21"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  }
+}
