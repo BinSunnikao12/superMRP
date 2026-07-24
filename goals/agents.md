@@ -8,8 +8,10 @@
 ```
 goals/
 ├── feishuDocs.md                          ← 原始 URL 索引（5 个飞书文档的链接）
-├── groupMRP-requirements-v0.1.md          ← 【开发需求主文档】所有 AI/开发的唯一输入
+├── groupMRP-requirements-v0.2.md          ← 【开发需求主文档】当前活跃版本
 ├── groupMRP-docs-content.md               ← 5 份原始文档的初次抓取副本（已废，仅留作历史）
+├── archive/                               ← 归档目录：每次迭代的版本快照
+│   └── v0.1-2026-07-24.md                 ← v0.1 第一版归档
 ├── feishu-originals/                      ← 【原始文档权威快照】每次同步会更新
 │   ├── 01-集团MRP系统软件开发需求文档.md
 │   ├── 02-集团MRP需求分解与执行系统需求文档.md
@@ -30,10 +32,11 @@ goals/
 │    → 原始文档的本地副本（脚本自动同步）                       │
 │    → 当飞书打不开时,作为替代权威                              │
 ├───────────────────────────────────────────────────────────┤
-│ 3. 【开发需求主文档】groupMRP-requirements-v0.1.md          │
+│ 3. 【开发需求主文档】groupMRP-requirements-v0.N.md           │
 │    → 团队所有 AI / 开发 / 测试的唯一输入                     │
 │    → 用户手动迭代、人维护                                    │
-│    → 当与原始文档冲突时,以原始文档为准并立刻更新 v0.1         │
+│    → 当与原始文档冲突时,以原始文档为准并立刻更新 v0.N         │
+│    → 旧版本自动归档到 archive/v0.(N-1)-YYYY-MM-DD.md          │
 ├───────────────────────────────────────────────────────────┤
 │ 4. 【初次抓取副本】groupMRP-docs-content.md（已废）         │
 │    → 最早一次抓的留底,不再更新                                │
@@ -44,19 +47,21 @@ goals/
 
 ### 规则 1：当说不清楚的时候，**以原始文档为准**
 
-> v0.1 合并文档是「人写的开发需求」，**可能落后于飞书原始文档**。
+> v0.2 合并文档是「人写的开发需求」，**可能落后于飞书原始文档**。
 > 一旦发现矛盾，按顺序核对：
 > 1. 先看 `feishu-originals/0N-*.md` 当前内容
 > 2. 再去飞书原始 URL 看最新版本（注意飞书可能又更新了）
-> 3. 飞书 > 一切。同时**回头更新 v0.1**
+> 3. 飞书 > 一切。同时**回头更新 v0.N**
 
-### 规则 2：v0.1 是迭代的版本
+### 规则 2：v0.N 是迭代的版本
 
-- 当前是 **v0.1**
-- 每次用户明确说"更新 v0.1"或"迭代 v0.1" → 升版本号（v0.2、v0.3...）
-- 旧版本保留在 git history（但本目录不强制保留）
+- 当前是 **v0.2**（已演进）
+- 每次用户明确说"更新 v0.N"或"迭代 v0.N" → 升版本号（v0.2 → v0.3, v0.3 → v0.4...）
+- **迭代时**:把当前 v0.N 改名归档为 `archive/v0.N-YYYY-MM-DD.md`,然后新建 v0.(N+1)
+- 归档文件保留在 `archive/` 目录,便于追溯历史决策
+- 旧版本依然在 git history 里,改动可逆
 
-### 规则 3：原始文档改了之后，**先跑同步，再更新 v0.1**
+### 规则 3：原始文档改了之后，**先跑同步，再更新 v0.N**
 
 ```bash
 # 1. 同步飞书 → feishu-originals/
@@ -65,8 +70,8 @@ npx tsx goals/sync-feishu-docs.ts
 # 2. 如果有改动, 人工读最新内容
 cat goals/feishu-originals/02-集团MRP需求分解与执行系统需求文档.md
 
-# 3. 基于最新内容更新 v0.1
-# （手动编辑 groupMRP-requirements-v0.1.md）
+# 3. 基于最新内容更新 v0.N
+# （手动编辑 groupMRP-requirements-v0.N.md）
 ```
 
 ### 规则 4：原始文档快照**不要手动编辑**
@@ -79,12 +84,12 @@ cat goals/feishu-originals/02-集团MRP需求分解与执行系统需求文档.m
 
 | 角色 | 读什么 |
 |------|--------|
-| **开发** | `groupMRP-requirements-v0.1.md`（主）+ `feishu-originals/`（核对） |
-| **测试** | `groupMRP-requirements-v0.1.md`（主）+ `feishu-originals/`（核对） |
-| **设计** | `groupMRP-requirements-v0.1.md`（主） |
-| **项目经理 / 用户** | `groupMRP-requirements-v0.1.md`（主）+ `feishu-originals/`（核对） |
-| **AI Agent** | `groupMRP-requirements-v0.1.md`（**唯一输入**）。如需追溯，调阅 `feishu-originals/` |
-| **业务方** | 飞书原文档（v0.1 是我们消化后的版本，最终决定权在飞书原文档） |
+| **开发** | `groupMRP-requirements-v0.2.md`（主）+ `feishu-originals/`（核对） |
+| **测试** | `groupMRP-requirements-v0.2.md`（主）+ `feishu-originals/`（核对） |
+| **设计** | `groupMRP-requirements-v0.2.md`（主） |
+| **项目经理 / 用户** | `groupMRP-requirements-v0.2.md`（主）+ `feishu-originals/`（核对） |
+| **AI Agent** | `groupMRP-requirements-v0.2.md`（**唯一输入**）。如需追溯，调阅 `feishu-originals/` |
+| **业务方** | 飞书原文档（v0.2 是我们消化后的版本，最终决定权在飞书原文档） |
 
 ## 同步脚本
 
@@ -97,17 +102,19 @@ cat goals/feishu-originals/02-集团MRP需求分解与执行系统需求文档.m
 ```
 飞书原文档改了
    ↓
-跑 npm run sync:feishu
+跑 npx tsx goals/sync-feishu-docs.ts
    ↓
 看 diff,确认改动
    ↓
-人工更新 v0.1
+人工更新 v0.N
    ↓
-新版本 v0.1 进入"开发需求 → 实现"
+新版本 v0.N 进入"开发需求 → 实现"
+   ↓
+旧版本归档到 archive/v0.N-YYYY-MM-DD.md
 ```
 
 ---
 
 ## 历史
 
-- 2026-07-24: 创建本文件 / 5 份原始文档首次入库 / v0.1 第一版
+- 2026-07-24: 创建本文件 / 5 份原始文档首次入库 / v0.1 第一版 / 迭代至 v0.2 (MVP-1 1 个月范围)
