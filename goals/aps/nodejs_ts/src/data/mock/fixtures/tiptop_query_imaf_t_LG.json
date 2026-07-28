@@ -1,0 +1,14 @@
+{
+  "Code": 1,
+  "DataCount": 4,
+  "Data": {
+    "columns": [],
+    "rows": [
+      { "IMAF001": "LG-PRODUCT-X", "IMAF013": "2", "IMAF014": "1", "IMAF026": 0,   "IMAF143": "EA", "IMAF145": 1, "IMAF146": 1, "IMAFUD010": "N", "IMAF171": 0, "IMAF172": 0, "IMAF173": 0, "IMAF174": 0, "IMAF175": 0, "IMAE015": 0, "IMAE016": "EA", "IMAE017": 1, "IMAE018": 1, "IMAE037": null, "IMAE032": null, "IMAE064": 0, "IMAE022": 0, "IMAE036": null, "IMAE051": 1.0, "IMAE071": 0, "IMAE072": 0, "IMAE074": 0, "IMAE075": 0, "IMAFUD003": "Y", "IMAFUD004": "Y", "IMAFUA003": "Y", "IMAFUA004": "Y", "OOEFL003": "总装一车间", "IMAE035": "2001", "IMAF142": null, "IMAFUD001": null, "IMAE012": null },
+      { "IMAF001": "LG-ROOT-001",   "IMAF013": "2", "IMAF014": "1", "IMAF026": 0,   "IMAF143": "EA", "IMAF145": 1, "IMAF146": 1, "IMAFUD010": "N", "IMAF171": 0, "IMAF172": 0, "IMAF173": 0, "IMAF174": 0, "IMAF175": 0, "IMAE015": 1, "IMAE016": "EA", "IMAE017": 1, "IMAE018": 1, "IMAE037": null, "IMAE032": null, "IMAE064": 0, "IMAE022": 0, "IMAE036": null, "IMAE051": 0.5, "IMAE071": 0, "IMAE072": 0, "IMAE074": 0, "IMAE075": 0, "IMAFUD003": "Y", "IMAFUD004": "Y", "IMAFUA003": "Y", "IMAFUA004": "Y", "OOEFL003": "焊接车间-乐歌", "IMAE035": "1069", "IMAF142": null, "IMAFUD001": null, "IMAE012": null },
+      { "IMAF001": "LG-PART-A",     "IMAF013": "1", "IMAF014": "1", "IMAF026": 100, "IMAF143": "EA", "IMAF145": 100, "IMAF146": 10, "IMAFUD010": "N", "IMAF171": 0, "IMAF172": 0, "IMAF173": 0, "IMAF174": 0, "IMAF175": 0, "IMAE015": 0, "IMAE016": "EA", "IMAE017": 1, "IMAE018": 1, "IMAE037": null, "IMAE032": null, "IMAE064": 0, "IMAE022": 0, "IMAE036": null, "IMAE051": 0.1, "IMAE071": 0, "IMAE072": 0, "IMAE074": 0, "IMAE075": 0, "IMAFUD003": "Y", "IMAFUD004": "Y", "IMAFUA003": "Y", "IMAFUA004": "Y", "OOEFL003": "外购仓", "IMAE035": "9999", "IMAF142": "张三", "IMAFUD001": "李四", "IMAE012": null },
+      { "IMAF001": "安全库存料号",    "IMAF013": "1", "IMAF014": "1", "IMAF026": 50, "IMAF143": "EA", "IMAF145": 1, "IMAF146": 1, "IMAFUD010": "N", "IMAF171": 0, "IMAF172": 0, "IMAF173": 0, "IMAF174": 0, "IMAF175": 0, "IMAE015": 0, "IMAE016": "EA", "IMAE017": 1, "IMAE018": 1, "IMAE037": null, "IMAE032": null, "IMAE064": 0, "IMAE022": 0, "IMAE036": null, "IMAE051": 0, "IMAE071": 0, "IMAE072": 0, "IMAE074": 0, "IMAE075": 0, "IMAFUD003": "Y", "IMAFUD004": "Y", "IMAFUA003": "Y", "IMAFUA004": "Y", "OOEFL003": "外购仓", "IMAE035": "9999", "IMAF142": null, "IMAFUD001": null, "IMAE012": null }
+    ],
+    "total": 4, "page": 1, "pageSize": 5000
+  }
+}

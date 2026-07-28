@@ -1,0 +1,116 @@
+# =====================================================================
+# APS MRP 一键编排
+#   - mrp-mysql: MySQL 8.0 容器（公用网络）
+#   - aps-runner: APS MRP 任务容器，依赖 mysql 就绪后跑一次
+#
+# 用法：
+#   cp .env.example .env       # 改 MRP_ORACLE_CONNECT_STRING 等
+#   docker compose up --build  # 一次性跑完所有基地
+#   docker compose run --rm aps-runner   # 单独重跑
+# =====================================================================
+
+services:
+  # -------- MySQL 数据库 --------
+  mrp-mysql:
+    image: mysql:8.0
+    container_name: aps-mrp-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MRP_MYSQL_PASSWORD:-loctek@2023}
+      MYSQL_DATABASE: ${MRP_MYSQL_DATABASE:-mrp}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=200
+      - --innodb-buffer-pool-size=1G
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mrp-mysql-data:/var/lib/mysql
+      # 首次启动自动执行 initdb 下的 SQL（按文件名排序）
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MRP_MYSQL_PASSWORD:-loctek@2023}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - aps-net
+    ports:
+      - "13306:3306"   # 主机可直连调试
+
+  # -------- APS MRP 任务 --------
+  aps-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aps-mrp-runner
+    depends_on:
+      mrp-mysql:
+        condition: service_healthy
+    environment:
+      # ===== 数据源 =====
+      MRP_ORACLE_SOURCE: ${MRP_ORACLE_SOURCE:-api}
+      MOCK_MODE: ${MOCK_MODE:-false}
+      MOCK_STRICT: ${MOCK_STRICT:-false}
+      # ===== 低代码平台（API 源）=====
+      LOWCODE_API_BASE_URL: ${LOWCODE_API_BASE_URL:-http://host.docker.internal:8089}
+      LOWCODE_USER: ${LOWCODE_USER:-admin}
+      LOWCODE_PASSWORD: ${LOWCODE_PASSWORD:-}
+      # ===== MySQL（容器内走服务名 mrp-mysql）=====
+      MRP_MYSQL_HOST: mrp-mysql
+      MRP_MYSQL_PORT: 3306
+      MRP_MYSQL_USER: root
+      MRP_MYSQL_PASSWORD: ${MRP_MYSQL_PASSWORD:-loctek@2023}
+      MRP_MYSQL_DATABASE: ${MRP_MYSQL_DATABASE:-mrp}
+      # ===== 低代码平台 MES =====
+      MRP_MES_HOST: ${MRP_MES_HOST:-10.19.204.8}
+      MRP_MES_USER: ${MRP_MES_USER:-lowcode}
+      MRP_MES_PASSWORD: ${MRP_MES_PASSWORD:-6V_YBn*q}
+      MRP_MES_DATABASE: ${MRP_MES_DATABASE:-lowcode}
+      # ===== Oracle（仅 direct 模式用）=====
+      MRP_ORACLE_USER: ${MRP_ORACLE_USER:-erp_reader}
+      MRP_ORACLE_PASSWORD: ${MRP_ORACLE_PASSWORD:-erp#query}
+      MRP_ORACLE_CONNECT_STRING: ${MRP_ORACLE_CONNECT_STRING:-192.168.0.199:1521/topprd}
+      MRP_ORACLE_SCHEMA: ${MRP_ORACLE_SCHEMA:-}
+      # ===== 业务参数 =====
+      MRP_SITES: ${MRP_SITES:-LG,YN,QU,GX,FN}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-600}
+      CACHE_MAX_ENTRIES: ${CACHE_MAX_ENTRIES:-64}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      API_MAX_PAGE_SIZE: ${API_MAX_PAGE_SIZE:-5000}
+      APS_OUTPUT_DIR: /data/output
+      APS_HTTP_PORT: ${APS_HTTP_PORT:-8080}
+      TZ: Asia/Shanghai
+      # 容器内的 token 文件路径（挂载的是 /root/study/CE/.env）
+      LOWCODE_TOKEN_FILE: /root/study/CE/.env
+    volumes:
+      # Excel 报告挂到宿主机 ./output
+      - ./output:/data/output
+      # 乐歌低代码平台的 token（~/study/CE/.env），让容器也能自动 refresh + 写回
+      - ${HOME}/study/CE/.env:/root/study/CE/.env:rw
+    networks:
+      - aps-net
+    ports:
+      - "${APS_HTTP_PORT:-8080}:8080"   # 暴露下载服务到宿主机
+    extra_hosts:
+      # 让容器内能用 host.docker.internal 访问宿主机的低代码平台
+      - "host.docker.internal:host-gateway"
+    # 常驻服务（跑完一次 MRP 后启 HTTP，K8s 也能直接 liveness 探活）
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+networks:
+  aps-net:
+    driver: bridge
+    name: aps-net
+
+volumes:
+  mrp-mysql-data:
+    name: aps-mrp-mysql-data

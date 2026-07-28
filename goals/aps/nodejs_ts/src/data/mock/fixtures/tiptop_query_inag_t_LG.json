@@ -1,0 +1,13 @@
+{
+  "Code": 1,
+  "DataCount": 3,
+  "Data": {
+    "columns": [],
+    "rows": [
+      { "INAG001": "LG-PART-A",   "INAG008": 50 },
+      { "INAG001": "LG-ROOT-001", "INAG008": 10 },
+      { "INAG001": "安全库存料号",  "INAG008": 0 }
+    ],
+    "total": 3, "page": 1, "pageSize": 5000
+  }
+}

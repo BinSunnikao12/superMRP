@@ -1,0 +1,27 @@
+{
+  "name": "aps-mrp-nodejs",
+  "version": "1.0.0",
+  "description": "APS MRP 系统 Node.js + TypeScript 复刻版，逻辑与 Python 原版完全一致。",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.10",
+    "exceljs": "^4.4.0",
+    "mysql2": "^3.9.1",
+    "oracledb": "^6.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/oracledb": "^6.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

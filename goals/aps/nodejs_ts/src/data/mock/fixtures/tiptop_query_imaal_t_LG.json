@@ -1,0 +1,14 @@
+{
+  "Code": 1,
+  "DataCount": 4,
+  "Data": {
+    "columns": [],
+    "rows": [
+      { "IMAAL001": "LG-PRODUCT-X",    "IMAAL003": "成品X",     "IMAAL004": "型号-X" },
+      { "IMAAL001": "LG-ROOT-001",      "IMAAL003": "测试根件",   "IMAAL004": "规格-1" },
+      { "IMAAL001": "LG-PART-A",        "IMAAL003": "测试零件A",  "IMAAL004": "规格-A" },
+      { "IMAAL001": "安全库存料号",       "IMAAL003": "安全库存件", "IMAAL004": "安全库存规格" }
+    ],
+    "total": 4, "page": 1, "pageSize": 5000
+  }
+}
