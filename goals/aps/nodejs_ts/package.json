@@ -7,7 +7,11 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "dev": "ts-node src/main.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "admin": "node dist/admin/server.js",
+    "pull:imaf:all": "MRP_MYSQL_HOST=localhost MRP_MYSQL_PORT=13306 PULL_CONCURRENCY=5 PULL_STAGGER_MS=0 node dist/phases/pullImaf.js",
+    "pull:imaf:incr": "MRP_MYSQL_HOST=localhost MRP_MYSQL_PORT=13306 PULL_CONCURRENCY=5 PULL_STAGGER_MS=30000 node dist/phases/pullImaf.js",
+    "pull:imaf:force": "MRP_MYSQL_HOST=localhost MRP_MYSQL_PORT=13306 PULL_CONCURRENCY=10 PULL_STAGGER_MS=0 node dist/phases/pullImaf.js"
   },
   "dependencies": {
     "dayjs": "^1.11.10",

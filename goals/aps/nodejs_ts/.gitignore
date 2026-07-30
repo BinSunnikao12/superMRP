@@ -12,6 +12,13 @@ output/
 __pycache__/
 *.pyc
 
+# MRP 各据点输出目录（Python 版本遗留，Node 版本不写这里）
+FN/
+GX/
+LG/
+QU/
+YN/
+
 # 日志
 *.log
 npm-debug.log*

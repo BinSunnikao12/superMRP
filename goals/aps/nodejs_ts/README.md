@@ -59,6 +59,28 @@ npm run build
 npm start
 ```
 
+### 1.5 单表拉取（imaf_t 物料主档）
+
+```bash
+# 推荐：增量模式（首次拉全量 2M 行 ~2-4h，重复跑只拉新行几秒）
+# CONCURRENCY=5 信号量限流 + STAGGER 30s 错峰（防 V8 引擎被打爆）
+npm run pull:imaf:incr
+
+# 全量快速模式（不推荐生产用，可能打爆 V8）
+npm run pull:imaf:all
+
+# 强制并发（不推荐，V8 单线程并发不加速反而卡死）
+npm run pull:imaf:force
+
+# 自定义参数
+PULL_CONCURRENCY=10 PULL_STAGGER_MS=0 node dist/phases/pullImaf.js
+
+# 拉取进度查看
+npm run admin  # 浏览器 http://localhost:8088/
+```
+
+拉取后 raw_base 会有 imafsite + 中文 label 列（料件编号/品名/规格/补给策略/...），pull_state 表记每个基地的 last_successful_time。
+
 跑完所有基地后，进程**不会退出**，会启 HTTP 下载服务监听 `:8080`。
 
 ### 2. Docker 一键起

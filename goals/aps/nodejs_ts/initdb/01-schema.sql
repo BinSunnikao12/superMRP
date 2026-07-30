@@ -183,3 +183,18 @@ CREATE TABLE IF NOT EXISTS holiday (
 INSERT IGNORE INTO holiday (site, startday, endday) VALUES
   ('LG', '2026-10-01', '2026-10-07'),
   ('YN', '2026-09-02', '2026-09-04');
+
+-- ---------------------------------------------------------------------
+-- pull_state：增量同步状态（每基地每接口一行）
+-- last_successful_time：上次成功拉取时间，下次拉取 WHERE > 这个时间
+-- 默认 '1900-01-01 00:00:00' = 拉全量
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS pull_state (
+  site VARCHAR(8) NOT NULL,
+  api_key VARCHAR(64) NOT NULL,
+  last_successful_time DATETIME NOT NULL DEFAULT '1900-01-01 00:00:00',
+  last_total_rows INT,
+  last_duration_ms INT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (site, api_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

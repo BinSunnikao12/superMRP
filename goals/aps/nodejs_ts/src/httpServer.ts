@@ -20,6 +20,7 @@ import * as path from 'path';
 import { URL } from 'url';
 import { config } from './config';
 import { cachePool } from './cache/ttlLru';
+import { handleAdmin, renderAdmin } from './admin/web';
 
 const PORT = parseInt(process.env.APS_HTTP_PORT || '8080', 10);
 const HOST = process.env.APS_HTTP_HOST || '0.0.0.0';
@@ -151,7 +152,7 @@ function badRequest(res: http.ServerResponse, msg: string): void {
 }
 
 export function startHttpServer(outputDir: string): http.Server {
-    const server = http.createServer((req, res) => {
+    const server = http.createServer(async (req, res) => {
         const url = new URL(req.url || '/', `http://${req.headers.host}`);
         const m = url.pathname.match(/^\/api\/(files|download|files\/[^/]+\/[^/]+|sites)(?:\/(.*))?$/);
         const p = url.pathname;
@@ -171,10 +172,13 @@ export function startHttpServer(outputDir: string): http.Server {
 
         // 简易 HTML
         if (p === '/' || p === '/index.html') {
-            const html = renderIndex();
+            const html = renderAdmin();
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(html) });
             return res.end(html);
         }
+
+        // 管理后台路由（含 HTML + JSON API）
+        if (await handleAdmin(req, res, p, url)) return;
 
         // 已处理基地列表
         if (p === '/api/sites') {

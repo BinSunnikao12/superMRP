@@ -77,8 +77,8 @@ export const config = {
     },
 
     api: {
-        // 乐歌低代码平台 baseUrl
-        baseUrl: envStr('LOWCODE_API_BASE_URL', 'http://localhost:8089'),
+        // 乐歌低代码平台 baseUrl（生产=https://lowcode-center-api.loctek.com；本地调试可走 mock）
+        baseUrl: envStr('LOWCODE_API_BASE_URL', 'https://lowcode-center-api.loctek.com'),
         // MOCK_MODE=true 时所有数据查询走本地 fixtures（不用连 Oracle/低代码）
         mockMode: envStr('MOCK_MODE', 'false') === 'true',
         // 严格 mock 模式：缺 fixture 直接抛错（开发期）；false 时缺 fixture 返回空
