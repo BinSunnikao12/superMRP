@@ -153,9 +153,9 @@ function badRequest(res: http.ServerResponse, msg: string): void {
 
 export function startHttpServer(outputDir: string): http.Server {
     const server = http.createServer(async (req, res) => {
-        const url = new URL(req.url || '/', `http://${req.headers.host}`);
-        const m = url.pathname.match(/^\/api\/(files|download|files\/[^/]+\/[^/]+|sites)(?:\/(.*))?$/);
-        const p = url.pathname;
+        try {
+            const url = new URL(req.url || '/', `http://${req.headers.host}`);
+            const p = url.pathname;
 
         // 健康检查
         if (p === '/health' || p === '/api/health') {
@@ -227,7 +227,17 @@ export function startHttpServer(outputDir: string): http.Server {
             }
         }
 
-        notFound(res);
+            notFound(res);
+        } catch (error) {
+            console.error('[http] request failed:', error);
+            if (!res.headersSent) {
+                jsonResponse(res, 500, {
+                    error: (error as Error).message || 'Internal Server Error',
+                });
+            } else {
+                res.end();
+            }
+        }
     });
 
     server.listen(PORT, HOST, () => {

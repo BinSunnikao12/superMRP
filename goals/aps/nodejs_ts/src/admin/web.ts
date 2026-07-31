@@ -201,7 +201,7 @@ async function triggerPull() {
   const site = document.getElementById('pullSite').value;
   document.getElementById('pullStatus').innerHTML = '<span style="color:#eab308">⏳ 拉取中...</span>';
   try {
-    const r = await fetch('/api/admin/pull/one?site=' + site);
+    const r = await fetch('/api/admin/pull/one?site=' + site, { method: 'POST' });
     const data = await r.json();
     document.getElementById('pullStatus').innerHTML =
       '<span style="color:#16a34a">✓ 完毕 ' + data.total_rows + ' 行 / ' + data.duration_ms + 'ms</span>';
