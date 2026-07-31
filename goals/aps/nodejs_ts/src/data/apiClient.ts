@@ -5,7 +5,11 @@
  *
  * - 调用格式：POST {baseUrl}/api/ApiEngine/Run
  * - Header: Authorization: Bearer <token>（从 ~/study/CE/.env 的 TOKEN 读）
- * - Body:  { ApiEngineKey, Param: {...} }
+ * - Body:  { ApiEngineKey, ...param }
+ *
+ * Microi 会把 ApiEngineKey 之外的顶层字段暴露为 V8.Param。
+ * 不能把业务参数包进 Param 对象，否则 V8.Param.site/page 等均为空，
+ * 接口会静默退回默认参数。
  * - Resp:  { Code: 1, Data: any, Msg: 'OK' }
  *
  * 401 / 1001 自动续期 + 重试：
@@ -155,6 +159,7 @@ export async function runApi<T = any>(apiKey: string, param: ApiRunParam = {}): 
         return runMock<T>(apiKey, param);
     }
     const baseUrl = config.api.baseUrl.replace(/\/$/, '');
+    const timeoutMs = Number(process.env.LOWCODE_API_TIMEOUT_MS || 120_000);
 
     let retried = false;
     let lastError: any;
@@ -165,6 +170,7 @@ export async function runApi<T = any>(apiKey: string, param: ApiRunParam = {}): 
         try {
             const r = await fetch(`${baseUrl}/api/ApiEngine/Run`, {
                 method: 'POST',
+                signal: AbortSignal.timeout(timeoutMs),
                 headers: {
                     'Authorization': `Bearer ${useToken}`,
                     'Content-Type': 'application/json',
@@ -172,7 +178,11 @@ export async function runApi<T = any>(apiKey: string, param: ApiRunParam = {}): 
                     'Origin': 'https://lowcode-center.loctek.com',
                     'Referer': 'https://lowcode-center.loctek.com/',
                 },
-                body: JSON.stringify({ ApiEngineKey: apiKey, Param: param }),
+                body: JSON.stringify({
+                    ApiEngineKey: apiKey,
+                    OsClient: 'loctek',
+                    ...param,
+                }),
             });
             const text = await r.text();
             try {

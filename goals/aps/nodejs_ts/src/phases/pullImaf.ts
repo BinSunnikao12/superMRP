@@ -83,27 +83,79 @@ async function getLastSuccessfulTime(site: string, apiKey: string): Promise<Date
             [site, apiKey],
         ) as any;
         if (rows.length > 0) return new Date(rows[0].last_successful_time);
-        return new Date('1900-01-01T00:00:00Z');
+        return new Date(1900, 0, 1, 0, 0, 0);
     } finally {
         conn.release();
     }
 }
 
-async function setLastSuccessfulTime(site: string, apiKey: string, totalRows: number, durationMs: number): Promise<void> {
+/**
+ * 全量成功后移除源端已不存在的旧行，再核对本站点最终行数。
+ * pulled_at 是本轮每次 UPSERT 都会更新的本地标记，因此清理不会影响本轮数据。
+ */
+async function finalizeFullSite(site: string, runStartedAt: Date, expectedRows: number): Promise<void> {
+    const conn = await mysqlPool().getConnection();
+    try {
+        await conn.beginTransaction();
+        await conn.execute(
+            `DELETE FROM raw_base WHERE site = ? AND pulled_at < ?`,
+            [site, runStartedAt],
+        );
+        const [rows] = await conn.execute(
+            `SELECT COUNT(*) AS total FROM raw_base WHERE site = ?`,
+            [site],
+        ) as any;
+        const actualRows = Number(rows[0]?.total || 0);
+        if (actualRows !== expectedRows) {
+            throw new Error(
+                `[${site}] final row count mismatch: expected ${expectedRows}, local ${actualRows}`,
+            );
+        }
+        await conn.commit();
+        console.log(`[${site}] full snapshot verified: ${actualRows} rows`);
+    } catch (error) {
+        await conn.rollback();
+        throw error;
+    } finally {
+        conn.release();
+    }
+}
+
+async function setLastSuccessfulTime(
+    site: string,
+    apiKey: string,
+    checkpoint: Date,
+    totalRows: number,
+    durationMs: number,
+): Promise<void> {
     const conn = await mysqlPool().getConnection();
     try {
         await conn.execute(
             `INSERT INTO pull_state (site, api_key, last_successful_time, last_total_rows, last_duration_ms)
-             VALUES (?, ?, DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'), ?, ?)
+             VALUES (?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
-               last_successful_time = DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s'),
+               last_successful_time = VALUES(last_successful_time),
                last_total_rows = VALUES(last_total_rows),
                last_duration_ms = VALUES(last_duration_ms)`,
-            [site, apiKey, totalRows, durationMs],
+            [site, apiKey, checkpoint, totalRows, durationMs],
         );
     } finally {
         conn.release();
     }
+}
+
+/** Oracle 的 TO_DATE 接收业务时区字符串，不能用 toISOString() 转成 UTC 后截取。 */
+function formatSqlDateTime(value: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return [
+        value.getFullYear(),
+        pad(value.getMonth() + 1),
+        pad(value.getDate()),
+    ].join('-') + ' ' + [
+        pad(value.getHours()),
+        pad(value.getMinutes()),
+        pad(value.getSeconds()),
+    ].join(':');
 }
 
 /** 共享 insertBatch：每 worker 各自用一个连接，5 据点 × 4 路并发 = 20 路 pool 够 */
@@ -193,7 +245,7 @@ async function pullOneSite(site: string, lastPullTime: Date, batchSize: number =
         metaConn.release();
     }
 
-    const lastPullTimeStr = lastPullTime.toISOString().slice(0, 19).replace('T', ' ');
+    const lastPullTimeStr = formatSqlDateTime(lastPullTime);
 
     // 2) 覆盖式：清空该 site 数据（拉增量是 diff 语义，简化用 REPLACE）
     const delConn = await mysqlPool().getConnection();
@@ -277,9 +329,17 @@ async function pullOneSite(site: string, lastPullTime: Date, batchSize: number =
 }
 
 async function main() {
-    const sites = (process.env.MRP_SITES || 'LG,YN,QU,FN,GX').split(',');
+    const sites = (process.env.MRP_SITES || 'LG,YN,QU,FN,GX')
+        .split(',').map(site => site.trim()).filter(Boolean);
     const t0 = Date.now();
+    const runStartedAt = new Date();
     const apiKey = 'tiptop_query_imaf_t';
+    const mode = process.env.PULL_MODE === 'full' ? 'full' : 'incr';
+    // 固定本轮上界。同步期间发生的变更留到下一轮，不参与当前分页，避免页漂移和漏数。
+    const upperPullTime = new Date();
+    console.log(
+        `[pullImaf] mode=${mode} window_end=${formatSqlDateTime(upperPullTime)}`,
+    );
 
     // 20 路并发：5 site × 4 worker = 20
     //  - 探每 site total（5 路并发）→ 计算总页数
@@ -292,10 +352,13 @@ async function main() {
     // 第一步：5 路并发探每 site total
     const totalPerSite = await Promise.all(
         sites.map(async (site) => {
-            const lastPullTime = await getLastSuccessfulTime(site, apiKey);
+            const lastPullTime = mode === 'full'
+                ? new Date(1900, 0, 1, 0, 0, 0)
+                : await getLastSuccessfulTime(site, apiKey);
             const data = await runApi<any>('tiptop_query_imaf_t', {
                 siteList: site,
-                lastPullTime: lastPullTime.toISOString().slice(0, 19).replace('T', ' '),
+                lastPullTime: formatSqlDateTime(lastPullTime),
+                upperPullTime: formatSqlDateTime(upperPullTime),
                 page: 1,
                 pageSize: 1,
             });
@@ -345,6 +408,8 @@ async function main() {
     };
 
     let totalRows = 0;
+    const rowsBySite = new Map<string, number>(sites.map(site => [site, 0]));
+    const failedSites = new Set<string>();
     const startAll = Date.now();
     // 错峰启动：每路间隔 STAGGER_MS（默认 30s）— 让 V8 单线程不被打爆
     const STAGGER_MS = parseInt(process.env.PULL_STAGGER_MS || '30000', 10);
@@ -357,12 +422,13 @@ async function main() {
         try {
             const t0 = Date.now();
             const info = totalPerSite.find(i => i.site === task.site)!;
-            const lastPullTimeStr = info.lastPullTime.toISOString().slice(0, 19).replace('T', ' ');
+            const lastPullTimeStr = formatSqlDateTime(info.lastPullTime);
             let inserted = 0;
             for (let page = task.startPage; page <= task.endPage; page++) {
                 const data = await runApi<any>('tiptop_query_imaf_t', {
                     siteList: task.site,
                     lastPullTime: lastPullTimeStr,
+                    upperPullTime: formatSqlDateTime(upperPullTime),
                     page,
                     pageSize: 1000,
                 });
@@ -377,25 +443,72 @@ async function main() {
             }
             const elapsed = (Date.now() - t0) / 1000;
             console.log(`[${task.site}/w${task.workerId}] pages ${task.startPage}-${task.endPage} done: ${inserted} rows in ${elapsed}s`);
-            return inserted;
+            return { site: task.site, inserted };
+        } catch (error) {
+            failedSites.add(task.site);
+            throw new Error(`[${task.site}/w${task.workerId}] ${(error as Error).message}`);
         } finally {
             release();
         }
     })).then(results => {
         for (const r of results) {
-            if (r.status === 'fulfilled') totalRows += r.value;
-            else console.error(`  failed: ${(r.reason as Error).message}`);
+            if (r.status === 'fulfilled') {
+                totalRows += r.value.inserted;
+                rowsBySite.set(r.value.site, (rowsBySite.get(r.value.site) || 0) + r.value.inserted);
+            } else {
+                const message = (r.reason as Error).message;
+                const site = /\[([A-Z]{2})\/w\d+\]/.exec(message)?.[1];
+                if (site) failedSites.add(site);
+                console.error(`  failed: ${message}`);
+            }
         }
     });
 
-    // 第五步：更新 state
+    // 所有分页累计数必须等于接口在固定窗口内报告的 total。
+    // 不相等说明存在漏页/接口异常，本站点不得推进 checkpoint，可直接重跑。
     for (const info of totalPerSite) {
-        const siteRows = tasks
-            .filter(t => t.site === info.site)
-            .reduce((s, t) => s + 1, 0);  // 占位
-        await setLastSuccessfulTime(info.site, apiKey, totalRows / sites.length, Date.now() - startAll);
+        const fetched = rowsBySite.get(info.site) || 0;
+        if (!failedSites.has(info.site) && fetched !== info.total) {
+            failedSites.add(info.site);
+            console.error(
+                `[${info.site}] row count mismatch: expected ${info.total}, fetched ${fetched}`,
+            );
+        }
     }
 
+    if (mode === 'full') {
+        for (const info of totalPerSite) {
+            if (failedSites.has(info.site)) continue;
+            try {
+                await finalizeFullSite(info.site, runStartedAt, info.total);
+            } catch (error) {
+                failedSites.add(info.site);
+                console.error((error as Error).message);
+            }
+        }
+    }
+
+    // 第五步：只为成功站点推进 state。失败时推进游标会永久漏掉本轮数据。
+    for (const info of totalPerSite) {
+        if (failedSites.has(info.site)) {
+            console.error(`[${info.site}] pull failed; checkpoint NOT advanced`);
+            continue;
+        }
+        await setLastSuccessfulTime(
+            info.site,
+            apiKey,
+            upperPullTime,
+            rowsBySite.get(info.site) || 0,
+            Date.now() - startAll,
+        );
+    }
+
+    if (failedSites.size > 0) {
+        console.error(
+            `[pullImaf] FAILED sites=${Array.from(failedSites).join(',')}; checkpoint not advanced`,
+        );
+        process.exit(1);
+    }
     console.log(`[pullImaf] ALL DONE. total ${totalRows} rows in ${(Date.now() - t0) / 1000}s`);
     process.exit(0);
 }

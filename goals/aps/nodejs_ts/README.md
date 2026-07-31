@@ -62,26 +62,22 @@ npm start
 ### 1.5 单表拉取（imaf_t 物料主档）
 
 ```bash
-# 推荐：增量模式（首次拉全量 2M 行 ~2-4h，重复跑只拉新行几秒）
-# CONCURRENCY=5 信号量限流 + STAGGER 30s 错峰（防 V8 引擎被打爆）
-npm run pull:imaf:incr
-
-# 全量快速模式（不推荐生产用，可能打爆 V8）
-npm run pull:imaf:all
-
-# 强制并发（不推荐，V8 单线程并发不加速反而卡死）
-npm run pull:imaf:force
-
-# 自定义参数
-PULL_CONCURRENCY=10 PULL_STAGGER_MS=0 node dist/phases/pullImaf.js
+# 只拉物料主表 raw_base：5 个基地并发，全量约 200 万行
+# 全部成功后清理源端已删除的旧行，并逐站核对本地总数
+npm run pull:raw-base
 
 # 拉取进度查看
-npm run admin  # 浏览器 http://localhost:8088/
+npm run admin  # 浏览器 http://localhost:8080/
 ```
 
 拉取后 raw_base 会有 imafsite + 中文 label 列（料件编号/品名/规格/补给策略/...），pull_state 表记每个基地的 last_successful_time。
 
-跑完所有基地后，进程**不会退出**，会启 HTTP 下载服务监听 `:8080`。
+该命令会先自动执行 TypeScript build，避免误跑旧的 `dist`。
+同步使用固定时间窗口；只有分页总数完全吻合时才推进水位。
+如果任一站点超时、漏页或入库失败，命令会以非 0 状态退出，并保留该站点原水位供下次重跑。
+
+> 固定窗口依赖低代码接口支持 `upperPullTime`。本地
+> `CE/ApiV8Code/鼎捷模块/tiptop_query_imaf_t.js` 更新后，需要先 push 到平台。
 
 ### 2. Docker 一键起
 
