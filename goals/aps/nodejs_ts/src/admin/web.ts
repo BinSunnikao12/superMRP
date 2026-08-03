@@ -165,6 +165,17 @@ function renderAdmin(): string {
 <script>
 const API = '/api/admin';
 
+// 浏览器端也需要独立的 HTML 转义函数；服务端同名函数不会进入页面脚本作用域。
+function esc(value) {
+  if (value == null) return '';
+  return String(value).replace(/[<>&"]/g, c => ({
+    '<': '&lt;',
+    '>': '&gt;',
+    '&': '&amp;',
+    '"': '&quot;'
+  })[c]);
+}
+
 // ============ Tab 切换 ============
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
@@ -193,11 +204,20 @@ async function loadDashboard() {
       if (!t.last_pulled) return max;
       return !max || new Date(t.last_pulled) > new Date(max) ? t.last_pulled : max;
     }, null);
+    const checkpoint = (data.checkpoints || []).find(c => c.site === site);
+    const progress = checkpoint && checkpoint.total_pages > 0
+      ? ((checkpoint.last_completed_page / checkpoint.total_pages) * 100).toFixed(1) + '%'
+      : (checkpoint ? '100.0%' : '-');
     html += '<div class="site-card">' +
       '<h3>' + site + (site === 'ALL' ? '（所有据点）' : '') + '</h3>' +
       '<div class="metric"><span>表数</span><span>' + rows.length + '</span></div>' +
       '<div class="metric"><span>总行数</span><span>' + totalRows.toLocaleString() + '</span></div>' +
       '<div class="metric"><span>最后拉取</span><span>' + (lastPulled ? new Date(lastPulled).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '<i style="color:#64748b">无</i>') + '</span></div>' +
+      (checkpoint ?
+        '<div class="metric"><span>raw_base 断点</span><span>' + esc(checkpoint.status) + '</span></div>' +
+        '<div class="metric"><span>页进度</span><span>' + checkpoint.last_completed_page + ' / ' + checkpoint.total_pages + '（' + progress + '）</span></div>' +
+        '<div class="metric"><span>已拉行数</span><span>' + Number(checkpoint.pulled_rows || 0).toLocaleString() + '</span></div>'
+        : '') +
       '</div>';
   }
   grid.innerHTML = html;
@@ -307,6 +327,7 @@ window.__SCHEMA__ = ${JSON.stringify(RAW_SCHEMA)};
 // 默认加载 Dashboard
 loadDashboard();
 loadLog();
+setInterval(loadDashboard, 10000);
 </script>
 </body>
 </html>`;
@@ -347,7 +368,20 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
                     latest_site: latestSite,
                 });
             }
-            jsonResponse(res, 200, { tables });
+            let checkpoints: any[] = [];
+            const [exists] = await conn.execute(
+                `SELECT COUNT(*) AS c FROM information_schema.tables
+                 WHERE table_schema = DATABASE() AND table_name = 'raw_base_pull_checkpoint'`,
+            ) as any;
+            if (Number(exists[0]?.c || 0) > 0) {
+                const [rows] = await conn.execute(
+                    `SELECT site, mode, total_rows, total_pages, last_completed_page,
+                            pulled_rows, status, error, started_at, updated_at
+                     FROM raw_base_pull_checkpoint ORDER BY site`,
+                ) as any;
+                checkpoints = rows;
+            }
+            jsonResponse(res, 200, { tables, checkpoints });
         } finally { conn.release(); }
         return true;
     }

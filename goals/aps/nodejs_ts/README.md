@@ -75,6 +75,9 @@ npm run admin  # 浏览器 http://localhost:8080/
 该命令会先自动执行 TypeScript build，避免误跑旧的 `dist`。
 同步使用固定时间窗口；只有分页总数完全吻合时才推进水位。
 如果任一站点超时、漏页或入库失败，命令会以非 0 状态退出，并保留该站点原水位供下次重跑。
+每成功写入一页都会更新 `raw_base_pull_checkpoint`；网络中断或按 `Ctrl+C` 后，
+再次执行同一个 `npm run pull:raw-base` 会复用原时间窗口，并从各站点下一页继续。
+单页默认最多重试 5 次，可用 `PULL_PAGE_RETRIES` 调整。
 
 > 固定窗口依赖低代码接口支持 `upperPullTime`。本地
 > `CE/ApiV8Code/鼎捷模块/tiptop_query_imaf_t.js` 更新后，需要先 push 到平台。

@@ -198,3 +198,22 @@ CREATE TABLE IF NOT EXISTS pull_state (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (site, api_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- raw_base 长任务断点：每站点顺序分页，每页成功后推进 last_completed_page
+CREATE TABLE IF NOT EXISTS raw_base_pull_checkpoint (
+  site VARCHAR(8) NOT NULL,
+  api_key VARCHAR(64) NOT NULL,
+  mode VARCHAR(16) NOT NULL,
+  last_pull_time DATETIME NOT NULL,
+  upper_pull_time DATETIME NOT NULL,
+  batch_size INT NOT NULL,
+  total_rows INT NOT NULL,
+  total_pages INT NOT NULL,
+  last_completed_page INT NOT NULL DEFAULT 0,
+  pulled_rows INT NOT NULL DEFAULT 0,
+  started_at DATETIME NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'running',
+  error TEXT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (site, api_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
