@@ -219,6 +219,7 @@ function renderAdmin(): string {
   .shift-card{background:#101820;border:1px solid #263442;border-radius:4px;padding:17px}.shift-label{font-size:9px;letter-spacing:.2em;color:#64748b}.shift-status{font-size:22px;font-weight:800;margin:7px 0;color:#e2e8f0}.shift-line{height:1px;background:#263442;margin:13px 0}.shift-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shift-meta b{display:block;font-size:16px;color:#f8fafc}.shift-meta span{font-size:9px;color:#64748b;letter-spacing:.08em}.run-terminal{margin-top:12px;background:#070b0f;border:1px solid #263442;border-radius:3px;padding:10px;height:92px;overflow:auto;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#7dd3fc}
   .formula-strip{display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:8px;margin-bottom:12px}.formula-main,.formula-chip{background:#101820;border:1px solid #263442;border-radius:4px;padding:13px}.formula-main{border-top:3px solid #f59e0b}.formula-main small,.formula-chip small{display:block;color:#64748b;font-size:9px;letter-spacing:.12em;margin-bottom:7px}.formula-main strong{font:700 14px/1.5 ui-monospace,monospace;color:#fbbf24}.formula-chip b{font-size:13px;color:#e2e8f0}.formula-chip p{font-size:10px;color:#64748b;margin:5px 0 0;line-height:1.5}
   .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{max-height:48vh;overflow:auto;border:1px solid #263442}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
+  .freshness{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:10px}.freshness b{color:#cbd5e1;font-weight:650}
   @media(max-width:1000px){.workbench-hero{grid-template-columns:1fr}.formula-strip{grid-template-columns:1fr 1fr}.preview-metrics{grid-template-columns:1fr 1fr}}@media(max-width:620px){.formula-strip{grid-template-columns:1fr}.preview-metrics{grid-template-columns:1fr}}
 </style>
 </head>
@@ -243,7 +244,7 @@ function renderAdmin(): string {
     <aside class="shift-card"><div class="shift-label">CURRENT PLANNING RUN</div><div id="jobStatus" class="shift-status">等待指令</div><div class="shift-line"></div><div class="shift-meta"><div><b id="jobSite">—</b><span>当前基地</span></div><div><b id="jobRows">0</b><span>当前接口行数</span></div></div><div id="jobTerminal" class="run-terminal">系统就绪，等待同步任务。</div></aside>
   </div>
   <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
-  <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">单层快速计算</span></h2></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
+  <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">全部物料实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
 </div>
 
 <!-- Panel 0: Real-time sync monitor -->
@@ -407,10 +408,16 @@ async function loadMrpPreview() {
   const site = document.getElementById('mrpSite').value;
   const result = document.getElementById('mrpResult');
   result.innerHTML = '<div class="empty-row">正在汇总 ' + site + ' 的需求与供给信号…</div>';
-  const r = await fetch(API + '/mrp/preview?site=' + encodeURIComponent(site) + '&limit=100');
+  const r = await fetch(API + '/mrp/preview?site=' + encodeURIComponent(site));
   const data = await r.json();
   if (!r.ok) { result.innerHTML = '<div class="empty-row">' + htmlEsc(data.error || '计算失败') + '</div>'; return; }
   const s = data.summary;
+  const calculatedAt = data.calculated_at ? new Date(data.calculated_at).toLocaleString('zh-CN') : '-';
+  const snapshotAt = data.snapshot_at ? new Date(data.snapshot_at).toLocaleString('zh-CN') : '暂无快照';
+  document.getElementById('previewFreshness').innerHTML =
+    '<span>计算完成 <b>' + htmlEsc(calculatedAt) + '</b></span>' +
+    '<span>耗时 <b>' + fmtQty(data.duration_ms) + ' ms</b></span>' +
+    '<span>数据快照 <b>' + htmlEsc(snapshotAt) + '</b></span>';
   document.getElementById('previewMetrics').innerHTML =
     '<div class="preview-metric"><span>预览物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
     '<div class="preview-metric"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
@@ -731,7 +738,7 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
             jsonResponse(res, 400, { error: 'unknown site: ' + site });
             return true;
         }
-        const limit = Math.min(500, Math.max(1, Number(urlObj.searchParams.get('limit') || 100)));
+        const calculationStartedAt = Date.now();
         const conn = await mysqlPool().getConnection();
         try {
             const sql = `WITH
@@ -764,7 +771,7 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
               LEFT JOIN wip w ON w.part_no=p.part_no LEFT JOIN special_supply sp ON sp.part_no=p.part_no
               LEFT JOIN safety sa ON sa.part_no=p.part_no LEFT JOIN transit t ON t.part_no=p.part_no
               LEFT JOIN inspecting ins ON ins.part_no=p.part_no LEFT JOIN item_name i ON i.part_no=p.part_no
-              ORDER BY net_demand DESC,p.part_no LIMIT ${limit}`;
+              ORDER BY net_demand DESC,p.part_no`;
             const params = [site, site, site, site, site, site, site, site];
             const [rows] = await conn.query(sql, params) as any;
             const normalized = (rows as any[]).map(row => {
@@ -774,8 +781,25 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
                 }
                 return out;
             });
+            const [snapshotRows] = await conn.query(
+                `SELECT MAX(pulled_at) snapshot_at FROM (
+                   SELECT MAX(pulled_at) pulled_at FROM raw_need WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_remain WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_cj WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_special_supply WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_safetystock WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_in_transit WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_testfunc WHERE site=? UNION ALL
+                   SELECT MAX(pulled_at) FROM raw_items WHERE site=?
+                 ) snapshots`,
+                params,
+            ) as any;
+            const snapshotAt = (snapshotRows as any[])[0]?.snapshot_at;
             jsonResponse(res, 200, {
                 site,
+                calculated_at: new Date().toISOString(),
+                duration_ms: Date.now() - calculationStartedAt,
+                snapshot_at: snapshotAt instanceof Date ? snapshotAt.toISOString() : snapshotAt || null,
                 formula: 'max(0, 毛需求 + 安全库存 - 可用库存 - 可用在制 - 特殊工单供给)',
                 rows: normalized,
                 summary: {
