@@ -97,7 +97,7 @@ class db():
                  cast(sfbaseq as VARCHAR(10)) sfbaseq,sfaa019 预计开工日期,
                 case  sfaastus when  'Y' then '已审核'  when 'F' then '已发出' end  工单状态,
                 sfaa020 预计完工日期,sfaa010 主件料号,sfaa012 -sfaa050 主件需求数量,
-                SFBA006,sfba010 qpa分子，sfba011 qpa分母 ,sfaa006,NVL(sfaaud002,' ') sfaaud002,ooag011,sfba014,sfaaua002,sfaaua003,
+                SFBA006,sfba010 qpa分子,sfba011 qpa分母 ,sfaa006,NVL(sfaaud002,' ') sfaaud002,ooag011,sfba014,sfaaua002,sfaaua003,
                 null docdt,null ooff013, (case when xmdddocno is null then ''
                       when  pmdastus='Y' then ''
                      else '包材未确认'  end) 包材未确认,'' 客户
