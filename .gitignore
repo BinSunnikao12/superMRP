@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+/src/**/*.js
 
 # 日志与临时工作区
 logs/
