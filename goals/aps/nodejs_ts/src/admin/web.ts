@@ -221,6 +221,7 @@ function renderAdmin(): string {
   .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{max-height:48vh;overflow:auto;border:1px solid #263442}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
   .freshness{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:10px}.freshness b{color:#cbd5e1;font-weight:650}
   .formula-value{cursor:help;text-decoration:underline dotted rgba(251,191,36,.45);text-underline-offset:3px}.formula-tooltip{display:none;position:fixed;z-index:1000;max-width:420px;padding:11px 13px;border:1px solid #f59e0b;border-radius:4px;background:#080d13;color:#dbeafe;box-shadow:0 12px 36px rgba(0,0,0,.55);white-space:pre-line;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}.formula-tooltip.visible{display:block}
+  .bom-link{cursor:zoom-in;border-bottom:1px dashed #f59e0b}.bom-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.bom-title{font-size:22px;font-weight:800;color:#f8fafc}.bom-sub{margin-top:5px;color:#64748b;font-size:11px}.bom-path{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0;color:#94a3b8}.bom-node{padding:3px 8px;border:1px solid #334155;background:#0f172a;color:#fbbf24;border-radius:3px}.drillable{color:#fbbf24}.leaf{color:#64748b}.bom-actions{display:flex;gap:7px;align-items:center}
   @media(max-width:1000px){.workbench-hero{grid-template-columns:1fr}.formula-strip{grid-template-columns:1fr 1fr}.preview-metrics{grid-template-columns:1fr 1fr}}@media(max-width:620px){.formula-strip{grid-template-columns:1fr}.preview-metrics{grid-template-columns:1fr}}
 </style>
 </head>
@@ -312,6 +313,14 @@ function renderAdmin(): string {
   </div>
 </div>
 
+<!-- BOM 逐层钻取页 -->
+<div id="panel-bom" class="panel">
+  <div class="card">
+    <div class="bom-head"><div><div class="eyebrow">BILL OF MATERIAL / LEVEL DRILLDOWN</div><div id="bomTitle" class="bom-title">BOM 结构</div><div id="bomMeta" class="bom-sub"></div></div><div class="bom-actions"><button id="bomBack">← 返回净需求</button><label>每页</label><select id="bomPageSize"><option>20</option><option selected>50</option><option>100</option></select></div></div>
+    <div id="bomPath" class="bom-path"></div><div id="bomResult" class="query-table">加载中...</div><div id="bomPager" class="pagination"></div>
+  </div>
+</div>
+
 </div>
 
 <script>
@@ -351,6 +360,12 @@ function activateTab(tabName) {
 }
 
 function activateCurrentRoute() {
+  if (location.hash.startsWith('#/bom/explorer')) {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-bom'));
+    loadBomFromRoute();
+    return;
+  }
   const tabName = LEGACY_ROUTES[location.hash] || Object.keys(TAB_ROUTES).find(name => TAB_ROUTES[name] === location.hash);
   if (!tabName) {
     history.replaceState(null, '', TAB_ROUTES.workbench);
@@ -433,7 +448,7 @@ async function loadMrpPreview() {
   const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验'];
   const rows = data.rows.map(x => {
     const netFormula = 'MAX(0, ' + fmtQty(x.gross_demand) + ' + ' + fmtQty(x.safety_stock) + ' - ' + fmtQty(x.available_stock) + ' - ' + fmtQty(x.available_wip) + ' - ' + fmtQty(x.special_supply) + ')';
-    return '<tr><td><code>' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
+    return '<tr><td><code class="bom-link" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '" title="双击查看 BOM">' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
       qtyCell(x.gross_demand, '', 'Σ(qty × qpa_num ÷ qpa_den)', 'raw_need.qty、qpa_num、qpa_den') +
       qtyCell(x.safety_stock, '', 'Σ(qty)', 'raw_safetystock.qty') +
       qtyCell(x.available_stock, 'supply-value', 'Σ(qty)', 'raw_remain.qty') +
@@ -462,6 +477,68 @@ document.addEventListener('mouseout', e => {
   const target = e.target.closest && e.target.closest('.formula-value');
   if (target && !target.contains(e.relatedTarget)) formulaTooltip.classList.remove('visible');
 });
+
+// ============ BOM 逐层钻取 ============
+function bomRoute(site, part, page = 1, trail = []) {
+  const params = new URLSearchParams({site,part,page:String(page),pageSize:document.getElementById('bomPageSize').value});
+  if (trail.length) params.set('trail', JSON.stringify(trail));
+  return '#/bom/explorer?' + params.toString();
+}
+function readBomTrail(params) {
+  try { const trail = JSON.parse(params.get('trail') || '[]'); return Array.isArray(trail) ? trail.slice(-30) : []; }
+  catch { return []; }
+}
+function openBom(site, part) {
+  const params = bomParams();
+  const currentPart = params.get('part');
+  const trail = location.hash.startsWith('#/bom/explorer') && currentPart ? [...readBomTrail(params), currentPart] : [];
+  location.hash = bomRoute(site, part, 1, trail);
+}
+function bomParams() {
+  const query = location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?') + 1) : '';
+  return new URLSearchParams(query);
+}
+async function loadBomFromRoute() {
+  const params = bomParams();
+  const site = params.get('site') || 'LG';
+  const part = params.get('part') || '';
+  const page = Math.max(1, Number(params.get('page') || 1));
+  const trail = readBomTrail(params);
+  const pageSize = [20,50,100].includes(Number(params.get('pageSize'))) ? Number(params.get('pageSize')) : 50;
+  document.getElementById('bomPageSize').value = String(pageSize);
+  if (!part) { document.getElementById('bomResult').innerHTML = '<div class="empty-row">缺少主件料号</div>'; return; }
+  document.getElementById('bomTitle').textContent = part;
+  document.getElementById('bomMeta').textContent = site + ' 基地 · BOM 第 ' + (trail.length + 1) + ' 层 · 正在查询直接子件';
+  const pathParts = [...trail, part];
+  document.getElementById('bomPath').innerHTML = pathParts.map((node,index) => '<button class="bom-node bom-crumb" data-index="' + index + '">' + htmlEsc(node) + '</button>').join('<span>›</span>') + '<span>双击有下阶结构的子件继续展开</span>';
+  document.getElementById('bomResult').innerHTML = '<div class="empty-row">正在读取 ' + htmlEsc(part) + ' 的 BOM…</div>';
+  const apiParams = new URLSearchParams({site,part,page:String(page),pageSize:String(pageSize)});
+  const r = await fetch(API + '/bom/children?' + apiParams.toString());
+  const data = await r.json();
+  if (!r.ok) { document.getElementById('bomResult').innerHTML = '<div class="empty-row">' + htmlEsc(data.error || 'BOM 查询失败') + '</div>'; return; }
+  document.getElementById('bomTitle').textContent = part + (data.parent?.name ? ' · ' + data.parent.name : '');
+  document.getElementById('bomMeta').textContent = site + ' 基地 · 直接子件 ' + Number(data.total).toLocaleString() + ' 项 · 数据快照 ' + (data.snapshot_at ? new Date(data.snapshot_at).toLocaleString('zh-CN') : '-');
+  const rows = data.rows.map(x => '<tr><td>' + htmlEsc(x.seq || '-') + '</td><td><code class="bom-link ' + (x.has_children ? 'drillable' : 'leaf') + '" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.sub_part) + '" title="' + (x.has_children ? '双击展开下一层 BOM' : '叶子物料，无下阶 BOM') + '">' + htmlEsc(x.sub_part) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td><td>' + fmtQty(x.qty) + '</td><td>' + htmlEsc(x.issue_uom || '') + '</td><td>' + htmlEsc(x.main_type || '') + ' / ' + htmlEsc(x.sub_type || '') + '</td><td>' + (x.has_children ? '<button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.sub_part) + '">展开下一级</button>' : '<span class="leaf">叶子物料</span>') + '</td></tr>').join('');
+  document.getElementById('bomResult').innerHTML = '<table><thead><tr><th>项次</th><th>子件料号</th><th>名称 / 规格</th><th>组成用量</th><th>单位</th><th>主件 / 子件类别</th><th>结构</th></tr></thead><tbody>' + (rows || '<tr><td colspan="7" class="empty-row">该物料没有下阶 BOM</td></tr>') + '</tbody></table>';
+  const totalPages = Math.max(1, data.totalPages || 1);
+  document.getElementById('bomPager').innerHTML = '<button onclick="setBomPage(1)" ' + (page === 1 ? 'disabled' : '') + '>« 首页</button><button onclick="setBomPage(' + (page - 1) + ')" ' + (page === 1 ? 'disabled' : '') + '>‹ 上一页</button><span style="margin:0 8px">' + page + ' / ' + totalPages + '</span><button onclick="setBomPage(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>下一页 ›</button><button onclick="setBomPage(' + totalPages + ')" ' + (page >= totalPages ? 'disabled' : '') + '>末页 »</button>';
+}
+function setBomPage(page) { const p = bomParams(); location.hash = bomRoute(p.get('site') || 'LG', p.get('part') || '', page, readBomTrail(p)); }
+document.addEventListener('dblclick', e => {
+  const target = e.target.closest && e.target.closest('.bom-link');
+  if (target && !target.classList.contains('leaf') && target.dataset.site && target.dataset.part) openBom(target.dataset.site, target.dataset.part);
+});
+document.addEventListener('click', e => {
+  const target = e.target.closest && e.target.closest('.bom-open');
+  if (target && target.dataset.site && target.dataset.part) openBom(target.dataset.site, target.dataset.part);
+  const crumb = e.target.closest && e.target.closest('.bom-crumb');
+  if (crumb) {
+    const p = bomParams(); const trail = readBomTrail(p); const path = [...trail, p.get('part')]; const index = Number(crumb.dataset.index);
+    location.hash = bomRoute(p.get('site') || 'LG', path[index], 1, path.slice(0,index));
+  }
+});
+document.getElementById('bomBack').addEventListener('click', () => { location.hash = TAB_ROUTES.workbench; });
+document.getElementById('bomPageSize').addEventListener('change', () => setBomPage(1));
 
 document.getElementById('syncSample').addEventListener('click', () => startSync('sample'));
 document.getElementById('syncFull').addEventListener('click', () => startSync('full'));
@@ -842,6 +919,55 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
                     net_demand: normalized.reduce((n, x) => n + x.net_demand, 0),
                     shortage_materials: normalized.filter(x => x.net_demand > 0).length,
                 },
+            });
+        } finally { conn.release(); }
+        return true;
+    }
+
+    if (p === '/api/admin/bom/children') {
+        const site = (urlObj.searchParams.get('site') || '').toUpperCase();
+        const part = (urlObj.searchParams.get('part') || '').trim();
+        const page = Math.max(1, Number(urlObj.searchParams.get('page') || 1));
+        const requestedPageSize = Number(urlObj.searchParams.get('pageSize') || 50);
+        const pageSize = [20, 50, 100].includes(requestedPageSize) ? requestedPageSize : 50;
+        if (!config.sites.includes(site)) {
+            jsonResponse(res, 400, { error: 'unknown site: ' + site });
+            return true;
+        }
+        if (!part || part.length > 64) {
+            jsonResponse(res, 400, { error: 'invalid BOM main part' });
+            return true;
+        }
+        const conn = await mysqlPool().getConnection();
+        try {
+            const [countRows] = await conn.query(
+                'SELECT COUNT(*) c, MAX(pulled_at) snapshot_at FROM raw_bom WHERE site=? AND main_part=?',
+                [site, part],
+            ) as any;
+            const total = Number((countRows as any[])[0]?.c || 0);
+            const snapshotAt = (countRows as any[])[0]?.snapshot_at;
+            const offset = (page - 1) * pageSize;
+            const [rows] = await conn.query(
+                `SELECT b.sub_part,b.qty,b.main_type,b.sub_type,b.issue_uom,b.seq,
+                        i.name,i.spec,
+                        EXISTS(SELECT 1 FROM raw_bom child WHERE child.site=b.site AND child.main_part=b.sub_part LIMIT 1) has_children
+                 FROM raw_bom b
+                 LEFT JOIN raw_items i ON i.site=b.site AND i.part_no=b.sub_part AND i.lang='zh_CN'
+                 WHERE b.site=? AND b.main_part=?
+                 ORDER BY CAST(b.seq AS UNSIGNED),b.seq,b.sub_part
+                 LIMIT ${pageSize} OFFSET ${offset}`,
+                [site, part],
+            ) as any;
+            const [parentRows] = await conn.query(
+                `SELECT name,spec FROM raw_items WHERE site=? AND part_no=? AND lang='zh_CN' LIMIT 1`,
+                [site, part],
+            ) as any;
+            jsonResponse(res, 200, {
+                site, part, page, pageSize, total,
+                totalPages: Math.max(1, Math.ceil(total / pageSize)),
+                snapshot_at: snapshotAt instanceof Date ? snapshotAt.toISOString() : snapshotAt || null,
+                parent: (parentRows as any[])[0] || null,
+                rows: (rows as any[]).map(row => ({ ...row, qty: Number(row.qty || 0), has_children: Boolean(row.has_children) })),
             });
         } finally { conn.release(); }
         return true;
