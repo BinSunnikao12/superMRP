@@ -7,7 +7,7 @@
  *   GET  /admin                — 管理主页（HTML，3 个 tab）
  *   GET  /api/admin/raw/summary — 16 张 raw_* 表 + pull_state 总览（按 site 分组）
  *   GET  /api/admin/raw/:table  — 查 raw 表（带分页 + 搜索）
- *   GET  /api/admin/pull/log    — pull_log 最近 20 条
+ *   GET  /api/admin/pull/log    — pull_log 分页与筛选
  *   POST /api/admin/pull/one    — 触发单个 apiKey 拉取
  *
  * 设计：
@@ -265,7 +265,17 @@ function renderAdmin(): string {
 
 <!-- Panel 2: Log -->
 <div id="panel-log" class="panel">
-  <div class="card"><h2>最近 20 条 pull_log</h2><div id="log-list">加载中...</div></div>
+  <div class="card">
+    <div class="mrp-toolbar"><h2>拉取运行历史</h2><span id="logInfo" class="mode-badge">加载中</span></div>
+    <div style="margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+      <label>基地</label><select id="logSite"><option value="">全部</option><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select>
+      <label>状态</label><select id="logStatus"><option value="">全部</option><option value="ok">成功</option><option value="failed">失败</option><option value="running">运行中</option></select>
+      <label>接口</label><input id="logApi" placeholder="输入接口关键字" />
+      <label>每页</label><select id="logPageSize"><option>20</option><option selected>50</option><option>100</option></select>
+      <button id="logSearch">查询</button><button id="logReset">重置</button>
+    </div>
+    <div id="log-list">加载中...</div><div id="logPager" class="pagination"></div>
+  </div>
 </div>
 
 <!-- Panel 3: Query -->
@@ -499,30 +509,53 @@ async function loadDashboard() {
 }
 
 // ============ Log ============
-async function loadLog() {
-  const r = await fetch(API + '/pull/log');
+let logCurrentPage = 1;
+async function loadLog(page = 1) {
+  logCurrentPage = page;
+  const params = new URLSearchParams({page:String(page),pageSize:document.getElementById('logPageSize').value});
+  const site = document.getElementById('logSite').value;
+  const status = document.getElementById('logStatus').value;
+  const api = document.getElementById('logApi').value.trim();
+  if (site) params.set('site', site);
+  if (status) params.set('status', status);
+  if (api) params.set('api', api);
+  const r = await fetch(API + '/pull/log?' + params.toString());
   const data = await r.json();
   if (!data.logs || data.logs.length === 0) {
     document.getElementById('log-list').innerHTML = '<i style="color:#64748b">暂无日志</i>';
+    document.getElementById('logInfo').textContent = '共 0 条';
+    document.getElementById('logPager').innerHTML = '';
     return;
   }
-  const rows = data.logs.map(l => {
-    const dur = l.duration_ms ? (l.duration_ms/1000).toFixed(1) + 's' : '-';
-    const cls = l.status === 'ok' ? 'badge-ok' : (l.status === 'failed' ? 'badge-fail' : 'badge-running');
-    return '<tr>' +
-      '<td><code>' + esc(l.site) + '</code></td>' +
-      '<td><code>' + esc(l.api_key) + '</code></td>' +
-      '<td>' + new Date(l.started_at).toLocaleString('zh-CN') + '</td>' +
-      '<td>' + dur + '</td>' +
-      '<td style="text-align:right">' + (l.total_rows || 0).toLocaleString() + '</td>' +
-      '<td><span class="badge ' + cls + '">' + esc(l.status) + '</span></td>' +
-      '<td class="truncate" style="color:#f87171">' + (l.error ? esc(l.error.slice(0, 80)) : '') + '</td>' +
-      '</tr>';
-  }).join('');
   document.getElementById('log-list').innerHTML =
-    '<table><thead><tr><th>据点</th><th>接口</th><th>开始</th><th>耗时</th><th>行数</th><th>状态</th><th>错误</th></tr></thead><tbody>' +
-    rows + '</tbody></table>';
+    '<div class="query-table"><table><thead><tr><th>据点</th><th>接口</th><th>开始</th><th>耗时</th><th>页数</th><th>行数</th><th>状态</th><th>错误</th></tr></thead><tbody>' +
+    data.logs.map(l => {
+      const dur = l.duration_ms ? (l.duration_ms/1000).toFixed(1) + 's' : '-';
+      const cls = l.status === 'ok' ? 'badge-ok' : (l.status === 'failed' ? 'badge-fail' : 'badge-running');
+      return '<tr><td><code>' + esc(l.site) + '</code></td><td><code>' + esc(l.api_key) + '</code></td><td>' + new Date(l.started_at).toLocaleString('zh-CN') + '</td><td>' + dur + '</td><td style="text-align:right">' + Number(l.page_count || 0).toLocaleString() + '</td><td style="text-align:right">' + Number(l.total_rows || 0).toLocaleString() + '</td><td><span class="badge ' + cls + '">' + esc(l.status) + '</span></td><td class="truncate" title="' + esc(l.error || '') + '" style="color:#f87171">' + (l.error ? esc(l.error.slice(0, 120)) : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+  const totalPages = Math.max(1, data.totalPages || 1);
+  document.getElementById('logInfo').textContent = '第 ' + page + ' / ' + totalPages + ' 页 · 共 ' + Number(data.total || 0).toLocaleString() + ' 条';
+  document.getElementById('logPager').innerHTML =
+    '<button onclick="loadLog(1)" ' + (page === 1 ? 'disabled' : '') + '>« 首页</button>' +
+    '<button onclick="loadLog(' + (page - 1) + ')" ' + (page === 1 ? 'disabled' : '') + '>‹ 上一页</button>' +
+    '<span style="margin:0 8px">' + page + ' / ' + totalPages + '</span>' +
+    '<button onclick="loadLog(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>下一页 ›</button>' +
+    '<button onclick="loadLog(' + totalPages + ')" ' + (page >= totalPages ? 'disabled' : '') + '>末页 »</button>';
 }
+
+document.getElementById('logSearch').addEventListener('click', () => loadLog(1));
+document.getElementById('logReset').addEventListener('click', () => {
+  document.getElementById('logSite').value = '';
+  document.getElementById('logStatus').value = '';
+  document.getElementById('logApi').value = '';
+  document.getElementById('logPageSize').value = '50';
+  loadLog(1);
+});
+document.getElementById('logSite').addEventListener('change', () => loadLog(1));
+document.getElementById('logStatus').addEventListener('change', () => loadLog(1));
+document.getElementById('logPageSize').addEventListener('change', () => loadLog(1));
+document.getElementById('logApi').addEventListener('keypress', e => { if (e.key === 'Enter') loadLog(1); });
 
 // ============ Query ============
 let currentPage = 1;
@@ -851,13 +884,38 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
         return true;
     }
 
-    // ② 拉取日志（最近 20 条）
+    // ② 拉取日志（分页 + 基地/状态/接口筛选）
     if (p === '/api/admin/pull/log') {
+        const page = Math.max(1, Number(urlObj.searchParams.get('page') || 1));
+        const pageSize = Math.min(100, Math.max(1, Number(urlObj.searchParams.get('pageSize') || 50)));
+        const site = (urlObj.searchParams.get('site') || '').toUpperCase();
+        const status = urlObj.searchParams.get('status') || '';
+        const api = (urlObj.searchParams.get('api') || '').trim();
+        if (site && !config.sites.includes(site)) {
+            jsonResponse(res, 400, { error: 'unknown site: ' + site });
+            return true;
+        }
+        if (status && !['ok', 'failed', 'running'].includes(status)) {
+            jsonResponse(res, 400, { error: 'unknown status: ' + status });
+            return true;
+        }
+        const where: string[] = [];
+        const params: any[] = [];
+        if (site) { where.push('site=?'); params.push(site); }
+        if (status) { where.push('status=?'); params.push(status); }
+        if (api) { where.push('api_key LIKE ?'); params.push('%' + api + '%'); }
+        const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
         const conn = await mysqlPool().getConnection();
         try {
-            const [rows] = await conn.execute(
+            const [countRows] = await conn.execute(
+                `SELECT COUNT(*) c FROM pull_log${whereSql}`, params,
+            ) as any;
+            const total = Number((countRows as any[])[0]?.c || 0);
+            const offset = (page - 1) * pageSize;
+            const [rows] = await conn.query(
                 `SELECT site, api_key, started_at, finished_at, duration_ms, page_count, total_rows, status, error
-                 FROM pull_log ORDER BY id DESC LIMIT 20`,
+                 FROM pull_log${whereSql} ORDER BY id DESC LIMIT ${pageSize} OFFSET ${offset}`,
+                params,
             ) as any;
             const normalized = (rows as any[]).map(r => {
                 const out: any = {};
@@ -867,7 +925,10 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
                 }
                 return out;
             });
-            jsonResponse(res, 200, { logs: normalized });
+            jsonResponse(res, 200, {
+                logs: normalized, total, page, pageSize,
+                totalPages: Math.max(1, Math.ceil(total / pageSize)),
+            });
         } finally { conn.release(); }
         return true;
     }
