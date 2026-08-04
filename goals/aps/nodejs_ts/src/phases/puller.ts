@@ -255,7 +255,10 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
     gd01: {
         targetTable: 'raw_gd01',
         pageSize: 500,
-        mapRow: r => mapRow(LABEL_TO_COL, r),
+        mapRow: r => ({
+            part_no: r['SFAA010'] ?? r['主件'],
+            qty: r['QTY'] ?? r['GD01数量'],
+        }),
     },
     gd_bom: {
         targetTable: 'raw_gd_bom',
@@ -298,7 +301,8 @@ const PULL_ORDER: string[] = [
     'tiptop_query_imaal_t',               // raw_items
     'tiptop_query_bmea_t',                // raw_substitute
     'tiptop_query_imaa_oocql',            // raw_outsourcing_type
-    // 两个 GD 接口暂不纳入：平台列表无对应记录，无法安全推送解除截断后的版本。
+    'tiptop_query_gd01',                   // raw_gd01
+    'tiptop_query_gd_bom',                 // raw_gd_bom
 ];
 
 /** 只跑指定 apiKey 列表（逗号分隔），用于单表验证 */
@@ -349,6 +353,7 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
 
         // 2) 新批次先追加写入；全部成功后才清理旧批次，失败时旧数据仍可用。
         let page = 1;
+        let expectedTotal: number | null = null;
         while (true) {
             const param: ApiRunParam = { site, page, pageSize: task.pageSize };
             // 特定任务加 lang 参数
@@ -359,6 +364,13 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
 
             const data = await runApi<any>(apiKey, param);
             const rows: Row[] = (data?.rows as Row[]) || [];
+            const pageTotal = Number(data?.total);
+            if (Number.isFinite(pageTotal)) {
+                if (expectedTotal == null) expectedTotal = pageTotal;
+                else if (pageTotal !== expectedTotal) {
+                    throw new Error(`source total changed while paging: ${expectedTotal} -> ${pageTotal}`);
+                }
+            }
             if (rows.length === 0) break;
             pageCount++;
 
@@ -417,6 +429,10 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
             if (page > maxPages) {
                 throw new Error(`exceeded PULL_MAX_PAGES=${maxPages}; endpoint pagination may not advance`);
             }
+        }
+
+        if (expectedTotal != null && totalRows !== expectedTotal) {
+            throw new Error(`row count mismatch: expected ${expectedTotal}, fetched ${totalRows}`);
         }
 
         // 3) 新批次完整落库后，再原子地清理该接口范围内的旧批次。
