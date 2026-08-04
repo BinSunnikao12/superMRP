@@ -66,6 +66,15 @@ npm start
 # 全部成功后清理源端已删除的旧行，并逐站核对本地总数
 npm run pull:raw-base
 
+# 日常增量；完成后自动核对源端/本地总数，不一致时自动全量校准
+npm run pull:raw-base:incr
+
+# 除 raw_base 外，安全全量同步所有已接入 Raw 模块
+npm run pull:modules:full
+
+# 全量同步 raw_base + 其他所有已接入模块（本地完整调试入口）
+npm run pull:all:full
+
 # 拉取进度查看
 npm run admin  # 浏览器 http://localhost:8080/
 ```
@@ -73,13 +82,24 @@ npm run admin  # 浏览器 http://localhost:8080/
 拉取后 raw_base 会有 imafsite + 中文 label 列（料件编号/品名/规格/补给策略/...），pull_state 表记每个基地的 last_successful_time。
 
 该命令会先自动执行 TypeScript build，避免误跑旧的 `dist`。
-同步使用固定时间窗口；只有分页总数完全吻合时才推进水位。
+raw_base 使用稳定业务键游标分页；增量同步使用固定时间窗口并在结束后核对总数。
 如果任一站点超时、漏页或入库失败，命令会以非 0 状态退出，并保留该站点原水位供下次重跑。
 每成功写入一页都会更新 `raw_base_pull_checkpoint`；网络中断或按 `Ctrl+C` 后，
 再次执行同一个 `npm run pull:raw-base` 会复用原时间窗口，并从各站点下一页继续。
 单页默认最多重试 5 次，可用 `PULL_PAGE_RETRIES` 调整。
 
-> 固定窗口依赖低代码接口支持 `upperPullTime`。本地
+其他 Raw 模块采用“新批次完整写入后再清理旧批次”；任一接口失败时保留上一轮可用数据，
+并让命令以非 0 状态退出。可用下面的方式只调试一个接口和一个基地：
+
+```bash
+PULL_ONLY=tiptop_query_bmea_t npm run pull:modules -- LG
+```
+
+当前可信全量清单暂不包含 `tiptop_query_gd01` 与 `tiptop_query_gd_bom`：这两个本地文件在
+LowCode 平台接口列表中没有可定位的记录 ID，线上旧版本仍分别存在 20,000/2,000 行截断。
+在平台补建或确认对应记录前，脚本会主动跳过，避免把截断结果当成全量数据。
+
+> 增量窗口依赖低代码接口支持 `upperPullTime`。本地
 > `CE/ApiV8Code/鼎捷模块/tiptop_query_imaf_t.js` 更新后，需要先 push 到平台。
 
 ### 2. Docker 一键起

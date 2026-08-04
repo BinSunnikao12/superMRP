@@ -15,7 +15,8 @@
  *       跑起来 5 路每路 1.5 小时，总 1.5 小时（vs 串行 2.5 小时）
  */
 import { runApi } from '../data/apiClient';
-import { mysqlPool } from '../data/dbPools';
+import { mysqlPool, shutdownAllPools } from '../data/dbPools';
+import { spawn } from 'child_process';
 
 const LABEL_TO_COL: Record<string, string> = {
     '料件编号': 'part_no',
@@ -169,6 +170,8 @@ interface PullCheckpoint {
     totalPages: number;
     lastCompletedPage: number;
     pulledRows: number;
+    cursorPart: string;
+    cursorSite: string;
     startedAt: Date;
 }
 
@@ -187,6 +190,8 @@ async function ensureCheckpointTable(): Promise<void> {
               total_pages INT NOT NULL,
               last_completed_page INT NOT NULL DEFAULT 0,
               pulled_rows INT NOT NULL DEFAULT 0,
+              cursor_part VARCHAR(64) NOT NULL DEFAULT '',
+              cursor_site VARCHAR(8) NOT NULL DEFAULT '',
               started_at DATETIME NOT NULL,
               status VARCHAR(16) NOT NULL DEFAULT 'running',
               error TEXT NULL,
@@ -194,6 +199,17 @@ async function ensureCheckpointTable(): Promise<void> {
               PRIMARY KEY (site, api_key)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `);
+        const [columns] = await conn.execute(
+            `SELECT COLUMN_NAME FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = 'raw_base_pull_checkpoint'`,
+        ) as any;
+        const names = new Set((columns as any[]).map(row => row.COLUMN_NAME));
+        if (!names.has('cursor_part')) {
+            await conn.execute(`ALTER TABLE raw_base_pull_checkpoint ADD COLUMN cursor_part VARCHAR(64) NOT NULL DEFAULT '' AFTER pulled_rows`);
+        }
+        if (!names.has('cursor_site')) {
+            await conn.execute(`ALTER TABLE raw_base_pull_checkpoint ADD COLUMN cursor_site VARCHAR(8) NOT NULL DEFAULT '' AFTER cursor_part`);
+        }
     } finally {
         conn.release();
     }
@@ -225,6 +241,8 @@ async function loadResumableCheckpoint(
             totalPages: Number(row.total_pages),
             lastCompletedPage: Number(row.last_completed_page),
             pulledRows: Number(row.pulled_rows),
+            cursorPart: String(row.cursor_part || ''),
+            cursorSite: String(row.cursor_site || ''),
             startedAt: new Date(row.started_at),
         };
     } finally {
@@ -238,13 +256,15 @@ async function saveNewCheckpoint(checkpoint: PullCheckpoint): Promise<void> {
         await conn.execute(
             `INSERT INTO raw_base_pull_checkpoint
                (site, api_key, mode, last_pull_time, upper_pull_time, batch_size,
-                total_rows, total_pages, last_completed_page, pulled_rows, started_at, status, error)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 'running', NULL)
+                total_rows, total_pages, last_completed_page, pulled_rows,
+                cursor_part, cursor_site, started_at, status, error)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '', '', ?, 'running', NULL)
              ON DUPLICATE KEY UPDATE
                mode = VALUES(mode), last_pull_time = VALUES(last_pull_time),
                upper_pull_time = VALUES(upper_pull_time), batch_size = VALUES(batch_size),
                total_rows = VALUES(total_rows), total_pages = VALUES(total_pages),
-               last_completed_page = 0, pulled_rows = 0, started_at = VALUES(started_at),
+               last_completed_page = 0, pulled_rows = 0, cursor_part = '', cursor_site = '',
+               started_at = VALUES(started_at),
                status = 'running', error = NULL`,
             [
                 checkpoint.site, checkpoint.apiKey, checkpoint.mode,
@@ -257,14 +277,22 @@ async function saveNewCheckpoint(checkpoint: PullCheckpoint): Promise<void> {
     }
 }
 
-async function savePageProgress(site: string, apiKey: string, page: number, rowCount: number): Promise<void> {
+async function savePageProgress(
+    site: string,
+    apiKey: string,
+    page: number,
+    rowCount: number,
+    cursorPart: string,
+    cursorSite: string,
+): Promise<void> {
     const conn = await mysqlPool().getConnection();
     try {
         await conn.execute(
             `UPDATE raw_base_pull_checkpoint
-             SET last_completed_page = ?, pulled_rows = pulled_rows + ?, status = 'running', error = NULL
+             SET last_completed_page = ?, pulled_rows = pulled_rows + ?,
+                 cursor_part = ?, cursor_site = ?, status = 'running', error = NULL
              WHERE site = ? AND api_key = ?`,
-            [page, rowCount, site, apiKey],
+            [page, rowCount, cursorPart, cursorSite, site, apiKey],
         );
     } finally {
         conn.release();
@@ -376,6 +404,61 @@ async function insertBatch(site: string, rows: any[]): Promise<number> {
     return mapped.length;
 }
 
+interface TotalCheckRow {
+    site: string;
+    sourceRows: number;
+    localRows: number;
+}
+
+/** 增量完成后的轻量守门：只取源端 COUNT，不下载全量明细。 */
+async function verifyFullTotals(sites: string[], apiKey: string): Promise<TotalCheckRow[]> {
+    const conn = await mysqlPool().getConnection();
+    let localRows: any[];
+    try {
+        const [rows] = await conn.execute(
+            `SELECT site, COUNT(*) AS total FROM raw_base
+             WHERE site IN (${sites.map(() => '?').join(',')}) GROUP BY site`,
+            sites,
+        ) as any;
+        localRows = rows;
+    } finally {
+        conn.release();
+    }
+    const localBySite = new Map<string, number>(
+        localRows.map(row => [String(row.site), Number(row.total)]),
+    );
+    return Promise.all(sites.map(async site => {
+        const data = await runApiWithRetry<any>(apiKey, {
+            siteList: site,
+            cursorMode: 1,
+            fullSnapshot: 1,
+            pageSize: 1,
+        });
+        return {
+            site,
+            sourceRows: Number(data?.total || 0),
+            localRows: localBySite.get(site) || 0,
+        };
+    }));
+}
+
+async function runAutomaticFullPull(): Promise<number> {
+    await shutdownAllPools();
+    return new Promise<number>((resolve, reject) => {
+        console.warn('[pullImaf] total mismatch detected; starting automatic full reconciliation');
+        const child = spawn(process.execPath, [__filename], {
+            env: {
+                ...process.env,
+                PULL_MODE: 'full',
+                PULL_AUTO_FULL_TRIGGERED: '1',
+            },
+            stdio: 'inherit',
+        });
+        child.once('error', reject);
+        child.once('exit', code => resolve(code ?? 1));
+    });
+}
+
 async function main() {
     const sites = (process.env.MRP_SITES || 'LG,YN,QU,FN,GX')
         .split(',').map(site => site.trim()).filter(Boolean);
@@ -424,6 +507,8 @@ async function main() {
                 totalPages: Math.ceil(total / batchSize),
                 lastCompletedPage: 0,
                 pulledRows: 0,
+                cursorPart: '',
+                cursorSite: '',
                 startedAt: new Date(),
             };
             await saveNewCheckpoint(checkpoint);
@@ -467,26 +552,48 @@ async function main() {
         await acquire();
         try {
             let pulledRows = checkpoint.pulledRows;
-            for (let page = checkpoint.lastCompletedPage + 1; page <= checkpoint.totalPages; page++) {
+            let cursorPart = checkpoint.cursorPart;
+            let cursorSite = checkpoint.cursorSite;
+            let page = checkpoint.lastCompletedPage + 1;
+            while (true) {
                 const data = await runApiWithRetry<any>(apiKey, {
                     siteList: checkpoint.site,
                     lastPullTime: formatSqlDateTime(checkpoint.lastPullTime),
                     upperPullTime: formatSqlDateTime(checkpoint.upperPullTime),
-                    page,
                     pageSize: checkpoint.batchSize,
+                    cursorMode: 1,
+                    fullSnapshot: checkpoint.mode === 'full' ? 1 : 0,
+                    cursorPart,
+                    cursorSite,
                 });
                 const rows = data?.rows || [];
                 if (rows.length === 0) {
-                    throw new Error(`page ${page}/${checkpoint.totalPages} unexpectedly empty`);
+                    break;
+                }
+                const nextCursorPart = String(data?.nextCursorPart || '');
+                const nextCursorSite = String(data?.nextCursorSite || '');
+                if (!nextCursorPart || (nextCursorPart === cursorPart && nextCursorSite === cursorSite)) {
+                    throw new Error(`cursor did not advance at page ${page}: ${cursorPart}/${cursorSite}`);
                 }
                 await insertBatch(checkpoint.site, rows);
-                await savePageProgress(checkpoint.site, apiKey, page, rows.length);
+                await savePageProgress(
+                    checkpoint.site,
+                    apiKey,
+                    page,
+                    rows.length,
+                    nextCursorPart,
+                    nextCursorSite,
+                );
                 pulledRows += rows.length;
+                cursorPart = nextCursorPart;
+                cursorSite = nextCursorSite;
                 const percent = checkpoint.totalPages === 0 ? 100 : page / checkpoint.totalPages * 100;
                 console.log(
                     `[${checkpoint.site}] page ${page}/${checkpoint.totalPages}` +
                     ` rows=${pulledRows}/${checkpoint.totalRows} ${percent.toFixed(1)}%`,
                 );
+                page++;
+                if (rows.length < checkpoint.batchSize || data?.hasMore === false) break;
             }
             return { site: checkpoint.site, pulledRows };
         } catch (error) {
@@ -508,23 +615,18 @@ async function main() {
         }
     }
 
-    for (const checkpoint of checkpoints) {
-        if (failedSites.has(checkpoint.site)) continue;
-        const pulledRows = pulledRowsBySite.get(checkpoint.site) || 0;
-        if (pulledRows !== checkpoint.totalRows) {
-            const message =
-                `row count mismatch: expected ${checkpoint.totalRows}, fetched ${pulledRows}`;
-            failedSites.add(checkpoint.site);
-            await markCheckpointStatus(checkpoint.site, apiKey, 'failed', message);
-            console.error(`[${checkpoint.site}] ${message}`);
-        }
-    }
-
     if (mode === 'full') {
         for (const checkpoint of checkpoints) {
             if (failedSites.has(checkpoint.site)) continue;
             try {
-                await finalizeFullSite(checkpoint.site, checkpoint.startedAt, checkpoint.totalRows);
+                const pulledRows = pulledRowsBySite.get(checkpoint.site) || 0;
+                if (pulledRows !== checkpoint.totalRows) {
+                    console.warn(
+                        `[${checkpoint.site}] source count changed during cursor scan:` +
+                        ` initial=${checkpoint.totalRows}, fetched=${pulledRows}`,
+                    );
+                }
+                await finalizeFullSite(checkpoint.site, checkpoint.startedAt, pulledRows);
             } catch (error) {
                 failedSites.add(checkpoint.site);
                 await markCheckpointStatus(checkpoint.site, apiKey, 'failed', (error as Error).message);
@@ -559,6 +661,23 @@ async function main() {
         process.exit(1);
     }
     console.log(`[pullImaf] ALL DONE. total ${totalRows} rows in ${(Date.now() - t0) / 1000}s`);
+
+    if (mode === 'incr' && process.env.PULL_AUTO_FULL_ON_MISMATCH !== 'false') {
+        console.log('[pullImaf] checking source totals against local raw_base...');
+        const totals = await verifyFullTotals(sites, apiKey);
+        const mismatches = totals.filter(row => row.sourceRows !== row.localRows);
+        for (const row of totals) {
+            const mark = row.sourceRows === row.localRows ? 'OK' : 'MISMATCH';
+            console.log(
+                `[${row.site}] total check ${mark}: source=${row.sourceRows}, local=${row.localRows}`,
+            );
+        }
+        if (mismatches.length > 0) {
+            const exitCode = await runAutomaticFullPull();
+            process.exit(exitCode);
+        }
+        console.log('[pullImaf] TOTAL CHECK PASSED; no full reconciliation needed');
+    }
     process.exit(0);
 }
 

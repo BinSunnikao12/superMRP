@@ -29,6 +29,8 @@ interface PullTask {
     pageSize: number;          // 每次拉多少
     /** 把 row 的 key 从 API 返回（label 或 物理列名）映射到 raw_* 表的 ASCII 列名 */
     mapRow: (row: Row) => Row;
+    /** 多接口共用一张 Raw 表时，只替换该来源的数据。 */
+    sourceScope?: string;
 }
 
 const LABEL_TO_COL: Record<string, string> = Object.assign({
@@ -179,6 +181,7 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
             m.source = 'sf';
             return normalizeDates(m, ['plan_start', 'plan_end', 'sfaaua002', 'sfaaua003', 'docdt']);
         },
+        sourceScope: 'sf',
     },
     sfba: {
         targetTable: 'raw_cj',
@@ -193,6 +196,7 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
             m.source = 'xmdd';
             return normalizeDates(m, ['plan_start', 'docdt']);
         },
+        sourceScope: 'xmdd',
     },
     inag: {
         targetTable: 'raw_remain',
@@ -282,7 +286,6 @@ const API_KEY_TO_TASK: Record<string, keyof typeof PULL_TASKS> = {
 
 const PULL_ORDER: string[] = [
     'tiptop_query_bom',                  // raw_bom
-    'tiptop_query_imaf_t',                // raw_base
     'tiptop_query_sfaa_t',                // raw_need (sf)
     'tiptop_query_sfba_t',                // raw_cj
     'tiptop_query_xmdd_t',                // raw_need (xmdd)
@@ -295,8 +298,7 @@ const PULL_ORDER: string[] = [
     'tiptop_query_imaal_t',               // raw_items
     'tiptop_query_bmea_t',                // raw_substitute
     'tiptop_query_imaa_oocql',            // raw_outsourcing_type
-    'tiptop_query_gd01',                  // raw_gd01
-    'tiptop_query_gd_bom',                // raw_gd_bom
+    // 两个 GD 接口暂不纳入：平台列表无对应记录，无法安全推送解除截断后的版本。
 ];
 
 /** 只跑指定 apiKey 列表（逗号分隔），用于单表验证 */
@@ -345,10 +347,7 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
         );
         logId = (r as any).insertId;
 
-        // 2) 先清空该基地该表的历史数据（覆盖式更新，保证一致性）
-        await conn.execute(`DELETE FROM ${task.targetTable} WHERE site = ?`, [site]);
-
-        // 3) 分页循环
+        // 2) 新批次先追加写入；全部成功后才清理旧批次，失败时旧数据仍可用。
         let page = 1;
         while (true) {
             const param: ApiRunParam = { site, page, pageSize: task.pageSize };
@@ -393,7 +392,10 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
             }
             const cols = Object.keys(mappedRows[0]);
             const phs = Array.from({ length: mappedRows.length }, () => `(${cols.map(() => '?').join(', ')})`).join(', ');
-            const sql = `INSERT INTO ${task.targetTable} (${cols.map(c => `\`${c}\``).join(', ')}) VALUES ${phs}`;
+            const updateSql = cols.filter(c => c !== 'site')
+                .map(c => `\`${c}\`=VALUES(\`${c}\`)`).join(', ');
+            const sql = `INSERT INTO ${task.targetTable} (${cols.map(c => `\`${c}\``).join(', ')}) VALUES ${phs}` +
+                (updateSql ? ` ON DUPLICATE KEY UPDATE ${updateSql}` : '');
             const flat: any[] = [];
             for (const row of mappedRows) {
                 for (const c of cols) {
@@ -411,14 +413,41 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
             // 5) 最后一页
             if (rows.length < task.pageSize) break;
             page++;
-            if (page > 100) {     // 硬上限（1000×100=10w 行），防无限循环
-                console.warn(`    [${apiKey}] hit 100-page safety limit`);
-                break;
+            const maxPages = Math.max(1, Number(process.env.PULL_MAX_PAGES || 10000));
+            if (page > maxPages) {
+                throw new Error(`exceeded PULL_MAX_PAGES=${maxPages}; endpoint pagination may not advance`);
             }
+        }
+
+        // 3) 新批次完整落库后，再原子地清理该接口范围内的旧批次。
+        if (task.sourceScope) {
+            await conn.execute(
+                `DELETE FROM ${task.targetTable} WHERE site = ? AND source = ? AND pulled_at < ?`,
+                [site, task.sourceScope, startedAt],
+            );
+        } else {
+            await conn.execute(
+                `DELETE FROM ${task.targetTable} WHERE site = ? AND pulled_at < ?`,
+                [site, startedAt],
+            );
         }
     } catch (e) {
         errMsg = (e as Error).message;
         console.error(`    [${apiKey}] FAILED: ${errMsg}`);
+        // 本轮失败只撤销本轮已写数据，不破坏上一轮可用快照。
+        try {
+            if (task.sourceScope) {
+                await conn.execute(
+                    `DELETE FROM ${task.targetTable} WHERE site = ? AND source = ? AND pulled_at = ?`,
+                    [site, task.sourceScope, startedAt],
+                );
+            } else {
+                await conn.execute(
+                    `DELETE FROM ${task.targetTable} WHERE site = ? AND pulled_at = ?`,
+                    [site, startedAt],
+                );
+            }
+        } catch { /* 保留原始错误 */ }
     } finally {
         // 6) 更新 pull_log
         const finishedAt = new Date();
@@ -460,6 +489,10 @@ async function pullSite(site: string): Promise<void> {
             `${s.apiKey.padEnd(32)} ${String(s.rows).padStart(7)} ${String(s.pages).padStart(6)}  ${String(s.ms).padStart(6)}ms  ${ok}`,
         );
     }
+    const failed = summary.filter(item => item.err);
+    if (failed.length > 0) {
+        throw new Error(`${failed.length} interface(s) failed: ${failed.map(item => item.apiKey).join(', ')}`);
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -476,10 +509,12 @@ async function main(): Promise<void> {
 
     console.log(`[pull] 准备拉取 ${sites.length} 个基地：${sites.join(', ')}`);
 
+    let failedSites = 0;
     for (const site of sites) {
         try {
             await pullSite(site);
         } catch (e) {
+            failedSites++;
             console.error(`[pull] 基地 ${site} 失败:`, (e as Error).message);
         }
     }
@@ -494,7 +529,7 @@ async function main(): Promise<void> {
     );
     console.log('\n[pull] 1 小时内汇总:', JSON.stringify(log, null, 2));
 
-    process.exit(0);
+    process.exit(failedSites > 0 ? 1 : 0);
 }
 
 main().catch(e => {

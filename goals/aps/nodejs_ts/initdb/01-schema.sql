@@ -211,6 +211,8 @@ CREATE TABLE IF NOT EXISTS raw_base_pull_checkpoint (
   total_pages INT NOT NULL,
   last_completed_page INT NOT NULL DEFAULT 0,
   pulled_rows INT NOT NULL DEFAULT 0,
+  cursor_part VARCHAR(64) NOT NULL DEFAULT '',
+  cursor_site VARCHAR(8) NOT NULL DEFAULT '',
   started_at DATETIME NOT NULL,
   status VARCHAR(16) NOT NULL DEFAULT 'running',
   error TEXT NULL,
