@@ -220,6 +220,7 @@ function renderAdmin(): string {
   .formula-strip{display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:8px;margin-bottom:12px}.formula-main,.formula-chip{background:#101820;border:1px solid #263442;border-radius:4px;padding:13px}.formula-main{border-top:3px solid #f59e0b}.formula-main small,.formula-chip small{display:block;color:#64748b;font-size:9px;letter-spacing:.12em;margin-bottom:7px}.formula-main strong{font:700 14px/1.5 ui-monospace,monospace;color:#fbbf24}.formula-chip b{font-size:13px;color:#e2e8f0}.formula-chip p{font-size:10px;color:#64748b;margin:5px 0 0;line-height:1.5}
   .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{max-height:48vh;overflow:auto;border:1px solid #263442}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
   .freshness{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:10px}.freshness b{color:#cbd5e1;font-weight:650}
+  .formula-value{cursor:help;text-decoration:underline dotted rgba(251,191,36,.45);text-underline-offset:3px}.formula-tooltip{display:none;position:fixed;z-index:1000;max-width:420px;padding:11px 13px;border:1px solid #f59e0b;border-radius:4px;background:#080d13;color:#dbeafe;box-shadow:0 12px 36px rgba(0,0,0,.55);white-space:pre-line;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}.formula-tooltip.visible{display:block}
   @media(max-width:1000px){.workbench-hero{grid-template-columns:1fr}.formula-strip{grid-template-columns:1fr 1fr}.preview-metrics{grid-template-columns:1fr 1fr}}@media(max-width:620px){.formula-strip{grid-template-columns:1fr}.preview-metrics{grid-template-columns:1fr}}
 </style>
 </head>
@@ -246,6 +247,7 @@ function renderAdmin(): string {
   <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
   <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">全部物料实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
 </div>
+<div id="formulaTooltip" class="formula-tooltip"></div>
 
 <!-- Panel 0: Real-time sync monitor -->
 <div id="panel-monitor" class="panel">
@@ -403,6 +405,11 @@ function fmtQty(v) { return Number(v || 0).toLocaleString('zh-CN', {maximumFract
 function htmlEsc(v) {
   return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function explainAttr(v) { return htmlEsc(v).replace(/\\n/g, '&#10;'); }
+function qtyCell(value, className, formula, source) {
+  const explanation = '公式：' + formula + '\\n来源：' + source + '\\n结果：' + fmtQty(value);
+  return '<td class="formula-value ' + (className || '') + '" data-explain="' + explainAttr(explanation) + '">' + fmtQty(value) + '</td>';
+}
 
 async function loadMrpPreview() {
   const site = document.getElementById('mrpSite').value;
@@ -419,15 +426,42 @@ async function loadMrpPreview() {
     '<span>耗时 <b>' + fmtQty(data.duration_ms) + ' ms</b></span>' +
     '<span>数据快照 <b>' + htmlEsc(snapshotAt) + '</b></span>';
   document.getElementById('previewMetrics').innerHTML =
-    '<div class="preview-metric"><span>预览物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
-    '<div class="preview-metric"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
-    '<div class="preview-metric alert"><span>净需求合计</span><b>' + fmtQty(s.net_demand) + '</b></div>' +
-    '<div class="preview-metric alert"><span>缺料物料数</span><b>' + fmtQty(s.shortage_materials) + '</b></div>';
+    '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：COUNT(DISTINCT 料号)\\n来源：raw_need、raw_remain、raw_cj、raw_special_supply、raw_safetystock\\n结果：' + fmtQty(s.materials)) + '"><span>全部物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
+    '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：Σ(每个物料的毛需求)\\n来源：raw_need.qty × qpa_num ÷ qpa_den\\n结果：' + fmtQty(s.gross_demand)) + '"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
+    '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：Σ MAX(0, 毛需求 + 安全库存 - 库存 - 在制 - 特殊供给)\\n来源：raw_need、raw_safetystock、raw_remain、raw_cj、raw_special_supply\\n结果：' + fmtQty(s.net_demand)) + '"><span>净需求合计</span><b>' + fmtQty(s.net_demand) + '</b></div>' +
+    '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：COUNT(净需求 > 0 的料号)\\n来源：全部物料净需求计算结果\\n结果：' + fmtQty(s.shortage_materials)) + '"><span>缺料物料数</span><b>' + fmtQty(s.shortage_materials) + '</b></div>';
   const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验'];
-  const rows = data.rows.map(x => '<tr><td><code>' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
-    '<td>' + fmtQty(x.gross_demand) + '</td><td>' + fmtQty(x.safety_stock) + '</td><td class="supply-value">' + fmtQty(x.available_stock) + '</td><td class="supply-value">' + fmtQty(x.available_wip) + '</td><td class="supply-value">' + fmtQty(x.special_supply) + '</td><td class="net-positive">' + fmtQty(x.net_demand) + '</td><td>' + fmtQty(x.in_transit) + '</td><td>' + fmtQty(x.inspecting) + '</td></tr>').join('');
+  const rows = data.rows.map(x => {
+    const netFormula = 'MAX(0, ' + fmtQty(x.gross_demand) + ' + ' + fmtQty(x.safety_stock) + ' - ' + fmtQty(x.available_stock) + ' - ' + fmtQty(x.available_wip) + ' - ' + fmtQty(x.special_supply) + ')';
+    return '<tr><td><code>' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
+      qtyCell(x.gross_demand, '', 'Σ(qty × qpa_num ÷ qpa_den)', 'raw_need.qty、qpa_num、qpa_den') +
+      qtyCell(x.safety_stock, '', 'Σ(qty)', 'raw_safetystock.qty') +
+      qtyCell(x.available_stock, 'supply-value', 'Σ(qty)', 'raw_remain.qty') +
+      qtyCell(x.available_wip, 'supply-value', 'Σ(qty)', 'raw_cj.qty') +
+      qtyCell(x.special_supply, 'supply-value', 'Σ(qty)', 'raw_special_supply.qty') +
+      qtyCell(x.net_demand, 'net-positive', netFormula, '上述需求与供给字段实时计算') +
+      qtyCell(x.in_transit, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_in_transit.qty') +
+      qtyCell(x.inspecting, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_testfunc.qty') + '</tr>';
+  }).join('');
   result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
+
+const formulaTooltip = document.getElementById('formulaTooltip');
+document.addEventListener('mouseover', e => {
+  const target = e.target.closest && e.target.closest('.formula-value');
+  if (!target || !target.dataset.explain) return;
+  formulaTooltip.textContent = target.dataset.explain;
+  formulaTooltip.classList.add('visible');
+});
+document.addEventListener('mousemove', e => {
+  if (!formulaTooltip.classList.contains('visible')) return;
+  formulaTooltip.style.left = Math.max(8, Math.min(e.clientX + 14, window.innerWidth - 440)) + 'px';
+  formulaTooltip.style.top = Math.max(8, Math.min(e.clientY + 14, window.innerHeight - 180)) + 'px';
+});
+document.addEventListener('mouseout', e => {
+  const target = e.target.closest && e.target.closest('.formula-value');
+  if (target && !target.contains(e.relatedTarget)) formulaTooltip.classList.remove('visible');
+});
 
 document.getElementById('syncSample').addEventListener('click', () => startSync('sample'));
 document.getElementById('syncFull').addEventListener('click', () => startSync('full'));
