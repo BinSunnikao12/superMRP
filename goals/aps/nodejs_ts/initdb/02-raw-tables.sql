@@ -110,6 +110,11 @@ CREATE TABLE IF NOT EXISTS raw_need (
   sfaaua003 VARCHAR(32),
   docdt DATETIME,
   customer VARCHAR(128),
+  sfba006 VARCHAR(64),
+  qpa_num DECIMAL(20,6),
+  qpa_den DECIMAL(20,6),
+  sfba014 VARCHAR(16),
+  package_pending VARCHAR(32),
   KEY idx_site_pulled (site, pulled_at),
   KEY idx_source (source)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -140,6 +145,8 @@ CREATE TABLE IF NOT EXISTS raw_cj (
   sfba013 DECIMAL(20,6),
   sfba014 VARCHAR(16),
   sfbadocno VARCHAR(64),
+  part_no VARCHAR(64),
+  qty DECIMAL(20,6),
   KEY idx_site_pulled (site, pulled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -212,6 +219,7 @@ CREATE TABLE IF NOT EXISTS raw_production_supply (
   part_no VARCHAR(64),
   issued DECIMAL(20,6),
   received DECIMAL(20,6),
+  qty DECIMAL(20,6),
   KEY idx_site_pulled (site, pulled_at),
   KEY idx_part_no (part_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -237,6 +245,7 @@ CREATE TABLE IF NOT EXISTS raw_safetystock (
   pulled_at DATETIME(3) NOT NULL,
   part_no VARCHAR(64),
   qty DECIMAL(20,6),
+  uom VARCHAR(16),
   KEY idx_site_pulled (site, pulled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -290,5 +299,20 @@ CREATE TABLE IF NOT EXISTS raw_gd_bom (
   doc_no VARCHAR(64),
   main_part VARCHAR(64),
   qty DECIMAL(20,6),
+  sub_part VARCHAR(64),
+  qpa DECIMAL(20,10),
+  issue_uom VARCHAR(16),
+  seq VARCHAR(32),
   KEY idx_site_pulled (site, pulled_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- raw_special_supply: Python get_special_supply()
+CREATE TABLE IF NOT EXISTS raw_special_supply (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  site VARCHAR(8) NOT NULL,
+  pulled_at DATETIME(3) NOT NULL,
+  part_no VARCHAR(64),
+  qty DECIMAL(20,6),
+  KEY idx_site_pulled (site, pulled_at),
+  KEY idx_part_no (part_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -142,7 +142,7 @@ export class Serve {
         const buyerDict           = await callSafely('buyerfunc', 30000, () => this.d.buyerfunc(),    EMPTY_MAP);
         const substitutes         = await callSafely('substitute', 30000, () => this.d.substitute(),   EMPTY_MAP);
         const purchaseOrderDetailDict = await callSafely('purchase_order_detail', 60000, () => this.d.purchase_order_detail(), EMPTY_MAP);
-        const gd01                = await callSafely('gd01', 30000, () => this.d.gd01(),               EMPTY_MAP);
+        const gd01                = await callSafely('get_special_supply', 30000, () => this.d.get_special_supply(), EMPTY_MAP);
         const gdBomDict           = await callSafely('gd_bom', 30000, () => this.d.gd_bom(),          EMPTY_MAP);
         const outsourcingTypeDict = await callSafely('outsourcing_type', 30000, () => this.d.outsourcing_type(), EMPTY_MAP);
         const remarkMap           = await callSafely('mes_remark', 30000, () => mesRemark(),            EMPTY_M_STRARR);

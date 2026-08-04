@@ -226,6 +226,14 @@ export class OracleDB {
         return result;
     }
 
+    async get_special_supply(): Promise<RowDict> {
+        const data = await this.runPg<any>('tiptop_query_special_supply');
+        const rows = toPhysicalRows(data);
+        const result: RowDict = {};
+        for (const i of rows) result[i['ITEM_NO']] = i['QTY'];
+        return result;
+    }
+
     async outsourcing_type(): Promise<RowDict> {
         const data = await this.runPg<any>('tiptop_query_imaa_oocql');
         const rows = toPhysicalRows(data);

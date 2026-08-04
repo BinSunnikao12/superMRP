@@ -13,6 +13,9 @@
     "pull:raw-base:incr": "npm run build --silent && MRP_MYSQL_HOST=localhost MRP_MYSQL_PORT=13306 PULL_MODE=incr PULL_CONCURRENCY=5 PULL_STAGGER_MS=0 node dist/phases/pullImaf.js",
     "pull:modules": "npm run build --silent && MRP_MYSQL_HOST=localhost MRP_MYSQL_PORT=13306 node dist/phases/puller.js",
     "pull:modules:full": "npm run pull:modules -- all",
+    "pull:modules:sample": "PULL_ROW_LIMIT=1000 npm run pull:modules -- all",
+    "sync:mysql:full": "npm run pull:modules:full",
+    "sync:mysql:sample": "npm run pull:modules:sample",
     "pull:all:full": "npm run pull:raw-base && npm run pull:modules:full"
   },
   "dependencies": {

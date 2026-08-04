@@ -366,6 +366,20 @@ case when length(listagg(to_char(pmdacrtdt,'YYYY-MM-DD'),',') within group (orde
         });
     }
 
+    async get_special_supply(): Promise<RowDict> {
+        return this.cached('get_special_supply', async () => {
+            const sql = `select sfaa010 as item_no,sum(sfaa012-sfaa050) qty
+                from sfaa_t
+                where sfaasite='${this.site}' and sfaastus in ('Y','F')
+                and substr(sfaadocno,4,4) in ('GD04','GD01','GD30','GD16')
+                and sfaa012-sfaa050>0 group by sfaa010`;
+            const rows = await this.ora(sql);
+            const result: RowDict = {};
+            for (const i of rows) result[i['ITEM_NO']] = i['QTY'];
+            return result;
+        });
+    }
+
     async outsourcing_type(): Promise<RowDict> {
         return this.cached('outsourcing_type', async () => {
             const sql = `select imaa001,oocql004,imaa130 from imaa_t

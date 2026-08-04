@@ -83,6 +83,11 @@ export const RAW_SCHEMA: Record<string, ColumnInfo[]> = {
         { name: 'main_part', label: '主件料号' },
         { name: 'qty', label: '需求数量', type: 'DECIMAL' },
         { name: 'src_doc', label: '来源单号' },
+        { name: 'sfba006', label: '发料料号' },
+        { name: 'qpa_num', label: 'QPA 分子', type: 'DECIMAL' },
+        { name: 'qpa_den', label: 'QPA 分母', type: 'DECIMAL' },
+        { name: 'sfba014', label: '发料单位' },
+        { name: 'package_pending', label: '包材未确认' },
         { name: 'ooag011', label: '业务人员' },
         { name: 'customer', label: '客户' },
         { name: 'pulled_at', label: '拉取时间' },
@@ -95,6 +100,8 @@ export const RAW_SCHEMA: Record<string, ColumnInfo[]> = {
     ],
     raw_cj: [
         { name: 'site', label: '据点' },
+        { name: 'part_no', label: '料号' },
+        { name: 'qty', label: '在制数量', type: 'DECIMAL' },
         { name: 'sfba006', label: '发料料号' },
         { name: 'qpa_num', label: '用量分子' },
         { name: 'qpa_den', label: '用量分母' },
@@ -145,6 +152,7 @@ export const RAW_SCHEMA: Record<string, ColumnInfo[]> = {
         { name: 'part_no', label: '料号' },
         { name: 'issued', label: '已发量', type: 'DECIMAL' },
         { name: 'received', label: '已领量', type: 'DECIMAL' },
+        { name: 'qty', label: '工单供给', type: 'DECIMAL' },
         { name: 'pulled_at', label: '拉取时间' },
     ],
     raw_items: [
@@ -158,6 +166,9 @@ export const RAW_SCHEMA: Record<string, ColumnInfo[]> = {
     raw_safetystock: [
         { name: 'site', label: '据点' },
         { name: 'part_no', label: '料号' },
+        { name: 'qty', label: '安全库存量', type: 'DECIMAL' },
+        { name: 'uom', label: '单位' },
+        { name: 'pulled_at', label: '拉取时间' },
         { name: 'qty', label: '安全库存量', type: 'DECIMAL' },
         { name: 'pulled_at', label: '拉取时间' },
     ],
@@ -191,6 +202,16 @@ export const RAW_SCHEMA: Record<string, ColumnInfo[]> = {
         { name: 'doc_no', label: '工单单号' },
         { name: 'main_part', label: '主件料号' },
         { name: 'qty', label: '未交量', type: 'DECIMAL' },
+        { name: 'sub_part', label: '发料料号' },
+        { name: 'qpa', label: '用量比例', type: 'DECIMAL' },
+        { name: 'issue_uom', label: '发料单位' },
+        { name: 'seq', label: '项次' },
+        { name: 'pulled_at', label: '拉取时间' },
+    ],
+    raw_special_supply: [
+        { name: 'site', label: '据点' },
+        { name: 'part_no', label: '料号' },
+        { name: 'qty', label: '特殊工单供给', type: 'DECIMAL' },
         { name: 'pulled_at', label: '拉取时间' },
     ],
 };
@@ -234,13 +255,14 @@ const SOURCE_META: Record<string, Record<string, [string, string]>> = {
     },
     raw_testfunc: { part_no: ['PMDT_T', 'PMDT006'], qty: ['PMDT_T', 'SUM(PMDT020-PMDT054-PMDT055)'] },
     raw_production_supply: {
-        part_no: ['SFAC_T', 'SFAC001'], issued: ['SFAC_T', 'SUM(SFAC003)'], received: ['SFAC_T', 'SUM(SFAC005)'],
+        part_no: ['SFAC_T', 'SFAC001'], qty: ['SFAC_T', 'SUM(SFAC003-SFAC005)'],
     },
     raw_items: {
         lang: ['IMAAL_T', 'IMAAL002（请求参数）'], part_no: ['IMAAL_T', 'IMAAL001'],
         name: ['IMAAL_T', 'IMAAL003'], spec: ['IMAAL_T', 'IMAAL004'],
     },
-    raw_safetystock: { part_no: ['IMAF_T', 'IMAF001'], qty: ['IMAF_T', 'IMAF026'] },
+    raw_safetystock: { part_no: ['IMAF_T', 'IMAF001'], qty: ['IMAF_T', 'IMAF026'], uom: ['IMAF_T', 'IMAF053'] },
+    raw_special_supply: { part_no: ['SFAA_T', 'SFAA010'], qty: ['SFAA_T', 'SUM(SFAA012-SFAA050)'] },
     raw_substitute: {
         bmea001: ['BMEA_T', 'BMEA001'], bmea003: ['BMEA_T', 'BMEA003'], bmea008: ['BMEA_T', 'BMEA008'],
         bmea011: ['BMEA_T', 'BMEA011'], bmea012: ['BMEA_T', 'BMEA012'], bmea016: ['BMEA_T', 'BMEA016'],

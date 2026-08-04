@@ -29,8 +29,12 @@ interface PullTask {
     pageSize: number;          // 每次拉多少
     /** 把 row 的 key 从 API 返回（label 或 物理列名）映射到 raw_* 表的 ASCII 列名 */
     mapRow: (row: Row) => Row;
-    /** 多接口共用一张 Raw 表时，只替换该来源的数据。 */
-    sourceScope?: string;
+    /** 同一张 Raw 表存在多个逻辑数据集时，只替换本数据集。 */
+    scope?: { column: string; value: string };
+    /** 传给 LowCode 接口的固定参数。 */
+    params?: ApiRunParam;
+    /** 快速模式下本任务的上限；共享表用它分摊 1000 条预算。 */
+    sampleLimit?: number;
 }
 
 const LABEL_TO_COL: Record<string, string> = Object.assign({
@@ -61,6 +65,7 @@ const LABEL_TO_COL: Record<string, string> = Object.assign({
     '工单单号': 'doc_no', '预计开工日期': 'plan_start', '工单状态': 'status',
     '预计完工日期': 'plan_end', '主件料号': 'main_part', '主件需求数量': 'qty',
     '来源单号': 'src_doc',
+    '包材未确认': 'package_pending',
     // raw_need (xmdd)
     '销售订单号': 'doc_no', '订单项次': 'sfbaseq', '可交货数量': 'qty', '客户': 'customer',
 
@@ -76,7 +81,7 @@ const LABEL_TO_COL: Record<string, string> = Object.assign({
     'IMAAL001': 'part_no', 'IMAAL003': 'name', 'IMAAL004': 'spec',
 
     // raw_safetystock
-    'IMAF001': 'part_no', 'IMAF026': 'qty',
+    'IMAF001': 'part_no', 'IMAF026': 'qty', 'IMAF053': 'uom',
 
     // raw_production_supply
     'SFAC001': 'part_no', 'SFAC003': 'issued', 'SFAC005': 'received',
@@ -100,7 +105,8 @@ const LABEL_TO_COL: Record<string, string> = Object.assign({
     // raw_gd01
     'GD01数量': 'qty',
     // raw_gd_bom 复用 main_part / qty（已定义）
-    '工单号': 'doc_no', '未交量': 'qty',
+    '工单号': 'doc_no', '未交量': 'qty', '发料料号': 'sub_part',
+    '用量比例': 'qpa',
 });
 
 /** 把一行 row 的 key 翻译成 raw_* 表的 ASCII 列名 */
@@ -136,20 +142,21 @@ const DECIMAL_COLS: Record<string, string[]> = {
                'mo_batch_qty', 'mo_min_qty', 'std_man_hour', 'fixed_lt',
                'variable_lt', 'qc_lt', 'accum_lt'],
     raw_bom: ['qty'],
-    raw_need: ['qty'],
+    raw_need: ['qty', 'qpa_num', 'qpa_den'],
     raw_remain: ['qty'],
     raw_in_transit: ['qty'],
     raw_purchase_order: ['ztnum', 'ztnum2'],
-    raw_production_supply: ['issued', 'received'],
+    raw_production_supply: ['issued', 'received', 'qty'],
     raw_buyer: [],
     raw_testfunc: ['qty'],
     raw_outsourcing_type: [],
     raw_items: [],
     raw_safetystock: ['qty'],
     raw_substitute: ['bmea016', 'bmea015'],
-    raw_cj: ['qpa_num', 'qpa_den', 'sfba013'],
+    raw_cj: ['qpa_num', 'qpa_den', 'sfba013', 'qty'],
     raw_gd01: ['qty'],
-    raw_gd_bom: ['qty'],
+    raw_gd_bom: ['qty', 'qpa'],
+    raw_special_supply: ['qty'],
 };
 
 /** 把 row 中所有日期字段归一化 */
@@ -181,12 +188,16 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
             m.source = 'sf';
             return normalizeDates(m, ['plan_start', 'plan_end', 'sfaaua002', 'sfaaua003', 'docdt']);
         },
-        sourceScope: 'sf',
+        scope: { column: 'source', value: 'sf' },
+        sampleLimit: 500,
     },
     sfba: {
         targetTable: 'raw_cj',
         pageSize: 1000,
-        mapRow: r => mapRow(LABEL_TO_COL, r),
+        mapRow: r => ({
+            part_no: r['SFBA006'] ?? r['料号'],
+            qty: r['QTY'] ?? r['在制数量'],
+        }),
     },
     xmdd: {
         targetTable: 'raw_need',
@@ -196,7 +207,8 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
             m.source = 'xmdd';
             return normalizeDates(m, ['plan_start', 'docdt']);
         },
-        sourceScope: 'xmdd',
+        scope: { column: 'source', value: 'xmdd' },
+        sampleLimit: 500,
     },
     inag: {
         targetTable: 'raw_remain',
@@ -211,7 +223,10 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
     sfac: {
         targetTable: 'raw_production_supply',
         pageSize: 1000,
-        mapRow: r => mapRow(LABEL_TO_COL, r),
+        mapRow: r => ({
+            part_no: r['SFAC001'] ?? r['料号'],
+            qty: r['QTY'] ?? r['工单供给'],
+        }),
     },
     pmdn: {
         targetTable: 'raw_buyer',
@@ -241,6 +256,21 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
             m.lang = 'zh_CN';
             return m;
         },
+        scope: { column: 'lang', value: 'zh_CN' },
+        params: { lang: 'zh_CN' },
+        sampleLimit: 500,
+    },
+    imaal_vi: {
+        targetTable: 'raw_items',
+        pageSize: 1000,
+        mapRow: r => {
+            const m = mapRow(LABEL_TO_COL, r);
+            m.lang = 'vi_VN';
+            return m;
+        },
+        scope: { column: 'lang', value: 'vi_VN' },
+        params: { lang: 'vi_VN' },
+        sampleLimit: 500,
     },
     imaa_oocql: {
         targetTable: 'raw_outsourcing_type',
@@ -265,6 +295,16 @@ const PULL_TASKS: Record<string, Omit<PullTask, 'apiKey'>> = {
         pageSize: 500,
         mapRow: r => mapRow(LABEL_TO_COL, r),
     },
+    safetystock: {
+        targetTable: 'raw_safetystock',
+        pageSize: 1000,
+        mapRow: r => mapRow(LABEL_TO_COL, r),
+    },
+    special_supply: {
+        targetTable: 'raw_special_supply',
+        pageSize: 1000,
+        mapRow: r => ({ part_no: r['ITEM_NO'], qty: r['QTY'] }),
+    },
 };
 
 /** API key → task 短名 */
@@ -285,40 +325,47 @@ const API_KEY_TO_TASK: Record<string, keyof typeof PULL_TASKS> = {
     tiptop_query_bmea_t: 'bmea',
     tiptop_query_gd01: 'gd01',
     tiptop_query_gd_bom: 'gd_bom',
+    tiptop_query_safetystock: 'safetystock',
+    tiptop_query_special_supply: 'special_supply',
 };
 
-const PULL_ORDER: string[] = [
-    'tiptop_query_bom',                  // raw_bom
-    'tiptop_query_sfaa_t',                // raw_need (sf)
-    'tiptop_query_sfba_t',                // raw_cj
-    'tiptop_query_xmdd_t',                // raw_need (xmdd)
-    'tiptop_query_inag_t',                // raw_remain
-    'tiptop_query_in_transit',            // raw_in_transit
-    'tiptop_query_sfac_t',                // raw_production_supply
-    'tiptop_query_pmdn_t',                // raw_buyer
-    'tiptop_query_pmdt_t',                // raw_testfunc
-    'tiptop_query_purchase_order',        // raw_purchase_order
-    'tiptop_query_imaal_t',               // raw_items
-    'tiptop_query_bmea_t',                // raw_substitute
-    'tiptop_query_imaa_oocql',            // raw_outsourcing_type
-    'tiptop_query_gd01',                   // raw_gd01
-    'tiptop_query_gd_bom',                 // raw_gd_bom
+interface PullJob { apiKey: string; taskName?: keyof typeof PULL_TASKS }
+
+const PULL_ORDER: PullJob[] = [
+    { apiKey: 'tiptop_query_bom' },
+    { apiKey: 'tiptop_query_sfaa_t' },
+    { apiKey: 'tiptop_query_sfba_t' },
+    { apiKey: 'tiptop_query_xmdd_t' },
+    { apiKey: 'tiptop_query_inag_t' },
+    { apiKey: 'tiptop_query_in_transit' },
+    { apiKey: 'tiptop_query_sfac_t' },
+    { apiKey: 'tiptop_query_pmdn_t' },
+    { apiKey: 'tiptop_query_pmdt_t' },
+    { apiKey: 'tiptop_query_purchase_order' },
+    { apiKey: 'tiptop_query_imaal_t', taskName: 'imaal' },
+    { apiKey: 'tiptop_query_imaal_t', taskName: 'imaal_vi' },
+    { apiKey: 'tiptop_query_safetystock' },
+    { apiKey: 'tiptop_query_bmea_t' },
+    { apiKey: 'tiptop_query_imaa_oocql' },
+    { apiKey: 'tiptop_query_special_supply' },
+    { apiKey: 'tiptop_query_gd01' },
+    { apiKey: 'tiptop_query_gd_bom' },
 ];
 
 /** 只跑指定 apiKey 列表（逗号分隔），用于单表验证 */
 const ONLY_API: string[] = (process.env.PULL_ONLY || '').split(',').map(s => s.trim()).filter(Boolean);
 if (ONLY_API.length > 0) {
     for (let i = PULL_ORDER.length - 1; i >= 0; i--) {
-        if (!ONLY_API.includes(PULL_ORDER[i])) PULL_ORDER.splice(i, 1);
+        if (!ONLY_API.includes(PULL_ORDER[i].apiKey)) PULL_ORDER.splice(i, 1);
     }
-    console.log(`[pull] PULL_ONLY 过滤后仅跑：${PULL_ORDER.join(', ')}`);
+    console.log(`[pull] PULL_ONLY 过滤后仅跑：${PULL_ORDER.map(x => x.apiKey).join(', ')}`);
 }
 
 // -----------------------------------------------------------------------------
 // 拉一个接口：分页循环 + 写入 + 写 pull_log
 // -----------------------------------------------------------------------------
-async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pages: number; durationMs: number; error?: string }> {
-    const taskName = API_KEY_TO_TASK[apiKey];
+async function pullOne(site: string, apiKey: string, taskOverride?: keyof typeof PULL_TASKS): Promise<{ rows: number; pages: number; durationMs: number; error?: string }> {
+    const taskName = taskOverride || API_KEY_TO_TASK[apiKey];
     if (!taskName) {
         return { rows: 0, pages: 0, durationMs: 0, error: `unknown apiKey: ${apiKey}` };
     }
@@ -354,20 +401,23 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
         // 2) 新批次先追加写入；全部成功后才清理旧批次，失败时旧数据仍可用。
         let page = 1;
         let expectedTotal: number | null = null;
+        const configuredLimit = Number(process.env.PULL_ROW_LIMIT || 0);
+        const rowLimit = configuredLimit > 0
+            ? Math.min(configuredLimit, task.sampleLimit || configuredLimit)
+            : null;
         while (true) {
-            const param: ApiRunParam = { site, page, pageSize: task.pageSize };
-            // 特定任务加 lang 参数
-            if (apiKey === 'tiptop_query_imaal_t') {
-                // zh_CN 主拉；vi_VN 第二次任务再跑
-                (param as any).lang = 'zh_CN';
-            }
+            const remaining = rowLimit == null
+                ? task.pageSize
+                : Math.min(task.pageSize, rowLimit - totalRows);
+            if (remaining <= 0) break;
+            const param: ApiRunParam = { site, page, pageSize: remaining, ...(task.params || {}) };
 
             const data = await runApi<any>(apiKey, param);
             const rows: Row[] = (data?.rows as Row[]) || [];
             const pageTotal = Number(data?.total);
             if (Number.isFinite(pageTotal)) {
                 if (expectedTotal == null) expectedTotal = pageTotal;
-                else if (pageTotal !== expectedTotal) {
+                else if (rowLimit == null && pageTotal !== expectedTotal) {
                     throw new Error(`source total changed while paging: ${expectedTotal} -> ${pageTotal}`);
                 }
             }
@@ -423,7 +473,8 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
             console.log(`    [${apiKey}] page ${page} got ${rows.length} rows (total ${totalRows})`);
 
             // 5) 最后一页
-            if (rows.length < task.pageSize) break;
+            if (rowLimit != null && totalRows >= rowLimit) break;
+            if (rows.length < remaining) break;
             page++;
             const maxPages = Math.max(1, Number(process.env.PULL_MAX_PAGES || 10000));
             if (page > maxPages) {
@@ -431,15 +482,18 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
             }
         }
 
-        if (expectedTotal != null && totalRows !== expectedTotal) {
-            throw new Error(`row count mismatch: expected ${expectedTotal}, fetched ${totalRows}`);
+        const expectedRows = expectedTotal == null
+            ? null
+            : (rowLimit == null ? expectedTotal : Math.min(expectedTotal, rowLimit));
+        if (expectedRows != null && totalRows !== expectedRows) {
+            throw new Error(`row count mismatch: expected ${expectedRows}, fetched ${totalRows}`);
         }
 
         // 3) 新批次完整落库后，再原子地清理该接口范围内的旧批次。
-        if (task.sourceScope) {
+        if (task.scope) {
             await conn.execute(
-                `DELETE FROM ${task.targetTable} WHERE site = ? AND source = ? AND pulled_at < ?`,
-                [site, task.sourceScope, startedAt],
+                `DELETE FROM ${task.targetTable} WHERE site = ? AND \`${task.scope.column}\` = ? AND pulled_at < ?`,
+                [site, task.scope.value, startedAt],
             );
         } else {
             await conn.execute(
@@ -452,10 +506,10 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
         console.error(`    [${apiKey}] FAILED: ${errMsg}`);
         // 本轮失败只撤销本轮已写数据，不破坏上一轮可用快照。
         try {
-            if (task.sourceScope) {
+            if (task.scope) {
                 await conn.execute(
-                    `DELETE FROM ${task.targetTable} WHERE site = ? AND source = ? AND pulled_at = ?`,
-                    [site, task.sourceScope, startedAt],
+                    `DELETE FROM ${task.targetTable} WHERE site = ? AND \`${task.scope.column}\` = ? AND pulled_at = ?`,
+                    [site, task.scope.value, startedAt],
                 );
             } else {
                 await conn.execute(
@@ -487,13 +541,22 @@ async function pullOne(site: string, apiKey: string): Promise<{ rows: number; pa
 // 拉一个基地所有接口
 // -----------------------------------------------------------------------------
 async function pullSite(site: string): Promise<void> {
+    const lockConn = await mysqlPool().getConnection();
+    const lockName = `aps:pull:modules:${site}`;
+    const [lockRows] = await lockConn.query('SELECT GET_LOCK(?, 0) AS acquired', [lockName]);
+    if (Number((lockRows as any[])[0]?.acquired) !== 1) {
+        lockConn.release();
+        throw new Error(`基地 ${site} 已有模块同步任务运行，拒绝并发执行`);
+    }
+    try {
     console.log(`\n========== 基地 ${site} 开始拉取 ==========`);
     const t0 = Date.now();
     const summary: { apiKey: string; rows: number; pages: number; ms: number; err?: string }[] = [];
 
-    for (const apiKey of PULL_ORDER) {
-        const r = await pullOne(site, apiKey);
-        summary.push({ apiKey, rows: r.rows, pages: r.pages, ms: r.durationMs, err: r.error });
+    for (const job of PULL_ORDER) {
+        const r = await pullOne(site, job.apiKey, job.taskName);
+        const displayKey = job.taskName ? `${job.apiKey}:${job.taskName}` : job.apiKey;
+        summary.push({ apiKey: displayKey, rows: r.rows, pages: r.pages, ms: r.durationMs, err: r.error });
     }
 
     console.log(`\n========== 基地 ${site} 拉取完毕（${(Date.now() - t0) / 1000}s）==========`);
@@ -509,6 +572,10 @@ async function pullSite(site: string): Promise<void> {
     if (failed.length > 0) {
         throw new Error(`${failed.length} interface(s) failed: ${failed.map(item => item.apiKey).join(', ')}`);
     }
+    } finally {
+        try { await lockConn.query('SELECT RELEASE_LOCK(?)', [lockName]); } catch { /* ignore */ }
+        lockConn.release();
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -516,7 +583,50 @@ async function pullSite(site: string): Promise<void> {
 // -----------------------------------------------------------------------------
 export { pullSite, pullOne };
 
+async function ensureModuleSchema(): Promise<void> {
+    const conn = await mysqlPool().getConnection();
+    try {
+        await conn.execute(`CREATE TABLE IF NOT EXISTS raw_special_supply (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            site VARCHAR(8) NOT NULL,
+            pulled_at DATETIME(3) NOT NULL,
+            part_no VARCHAR(64),
+            qty DECIMAL(20,6),
+            KEY idx_site_pulled (site, pulled_at),
+            KEY idx_part_no (part_no)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+        const additions: Array<[string, string, string]> = [
+            ['raw_need', 'sfba006', 'VARCHAR(64)'],
+            ['raw_need', 'qpa_num', 'DECIMAL(20,6)'],
+            ['raw_need', 'qpa_den', 'DECIMAL(20,6)'],
+            ['raw_need', 'sfba014', 'VARCHAR(16)'],
+            ['raw_need', 'package_pending', 'VARCHAR(32)'],
+            ['raw_cj', 'part_no', 'VARCHAR(64)'],
+            ['raw_cj', 'qty', 'DECIMAL(20,6)'],
+            ['raw_production_supply', 'qty', 'DECIMAL(20,6)'],
+            ['raw_safetystock', 'uom', 'VARCHAR(16)'],
+            ['raw_gd_bom', 'sub_part', 'VARCHAR(64)'],
+            ['raw_gd_bom', 'qpa', 'DECIMAL(20,10)'],
+            ['raw_gd_bom', 'issue_uom', 'VARCHAR(16)'],
+            ['raw_gd_bom', 'seq', 'VARCHAR(32)'],
+        ];
+        for (const [table, column, type] of additions) {
+            const [rows] = await conn.execute(
+                `SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = ? AND table_name = ? AND column_name = ? LIMIT 1`,
+                [config.mysql.database, table, column],
+            );
+            if ((rows as any[]).length === 0) {
+                await conn.execute(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${type}`);
+            }
+        }
+    } finally {
+        conn.release();
+    }
+}
+
 async function main(): Promise<void> {
+    await ensureModuleSchema();
     const args = process.argv.slice(2);
     const arg = (args[0] || 'all').trim();
     let sites: string[];

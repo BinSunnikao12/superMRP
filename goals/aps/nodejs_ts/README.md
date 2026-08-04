@@ -72,6 +72,13 @@ npm run pull:raw-base:incr
 # 除 raw_base 外，安全全量同步所有已接入 Raw 模块
 npm run pull:modules:full
 
+# 除 raw_base 外，每个基地、每张表最多同步 1000 条（快速联调）
+npm run pull:modules:sample
+
+# 语义更明确的同义命令
+npm run sync:mysql:full
+npm run sync:mysql:sample
+
 # 全量同步 raw_base + 其他所有已接入模块（本地完整调试入口）
 npm run pull:all:full
 
@@ -95,9 +102,8 @@ raw_base 使用稳定业务键游标分页；增量同步使用固定时间窗�
 PULL_ONLY=tiptop_query_bmea_t npm run pull:modules -- LG
 ```
 
-当前可信全量清单暂不包含 `tiptop_query_gd01` 与 `tiptop_query_gd_bom`：这两个本地文件在
-LowCode 平台接口列表中没有可定位的记录 ID，线上旧版本仍分别存在 20,000/2,000 行截断。
-在平台补建或确认对应记录前，脚本会主动跳过，避免把截断结果当成全量数据。
+模块同步已包含 Python 数据层使用的 GD、特殊工单供给、安全库存和中越文料件信息。
+同一基地使用数据库互斥锁，若已有全量或快速同步正在运行，新任务会拒绝启动，避免批次交叉写入。
 
 > 增量窗口依赖低代码接口支持 `upperPullTime`。本地
 > `CE/ApiV8Code/鼎捷模块/tiptop_query_imaf_t.js` 更新后，需要先 push 到平台。
