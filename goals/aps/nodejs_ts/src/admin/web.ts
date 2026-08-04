@@ -17,12 +17,91 @@
  *   - 紧凑布局：flex 居中 + sticky thead，无最大滚动条
  */
 import * as http from 'http';
+import { spawn, type ChildProcess } from 'child_process';
+import * as path from 'path';
 import { URL } from 'url';
 import { mysqlPool } from '../data/dbPools';
 import { config } from '../config';
 import { RAW_SCHEMA } from './schema';
 
 const RAW_TABLES = Object.keys(RAW_SCHEMA);
+
+interface AdminSyncJob {
+    mode: 'full' | 'sample';
+    status: 'running' | 'completed' | 'failed';
+    startedAt: string;
+    finishedAt?: string;
+    currentSite?: string;
+    currentApi?: string;
+    rows: number;
+    exitCode?: number;
+    lines: string[];
+}
+
+let activeSyncProcess: ChildProcess | null = null;
+let activeSyncJob: AdminSyncJob | null = null;
+
+function appendSyncOutput(chunk: Buffer): void {
+    if (!activeSyncJob) return;
+    const text = chunk.toString('utf8');
+    for (const line of text.split(/\r?\n/).filter(Boolean)) {
+        activeSyncJob.lines.push(line);
+        if (activeSyncJob.lines.length > 80) activeSyncJob.lines.shift();
+        const site = line.match(/基地\s+([A-Z]+)\s+开始拉取/);
+        if (site) activeSyncJob.currentSite = site[1];
+        const page = line.match(/\[([^\]]+)\].*total\s+(\d+)/);
+        if (page) {
+            activeSyncJob.currentApi = page[1];
+            activeSyncJob.rows = Number(page[2]);
+        }
+    }
+}
+
+function startModuleSync(mode: 'full' | 'sample'): AdminSyncJob {
+    if (activeSyncProcess && activeSyncJob?.status === 'running') {
+        throw new Error('已有同步任务正在运行');
+    }
+    const script = path.resolve(process.cwd(), 'dist/phases/puller.js');
+    const env = { ...process.env } as NodeJS.ProcessEnv;
+    if (mode === 'sample') env.PULL_ROW_LIMIT = '1000';
+    else delete env.PULL_ROW_LIMIT;
+    activeSyncJob = {
+        mode,
+        status: 'running',
+        startedAt: new Date().toISOString(),
+        rows: 0,
+        lines: [],
+    };
+    const child = spawn(process.execPath, [script, 'all'], {
+        cwd: process.cwd(), env, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    activeSyncProcess = child;
+    child.stdout?.on('data', appendSyncOutput);
+    child.stderr?.on('data', appendSyncOutput);
+    child.on('close', code => {
+        if (!activeSyncJob) return;
+        activeSyncJob.exitCode = code ?? 1;
+        activeSyncJob.status = code === 0 ? 'completed' : 'failed';
+        activeSyncJob.finishedAt = new Date().toISOString();
+        activeSyncProcess = null;
+    });
+    return activeSyncJob;
+}
+
+async function readJsonBody(req: http.IncomingMessage): Promise<any> {
+    return new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > 1024 * 1024) reject(new Error('request body too large'));
+        });
+        req.on('end', () => {
+            try { resolve(body ? JSON.parse(body) : {}); }
+            catch { reject(new Error('invalid json')); }
+        });
+        req.on('error', reject);
+    });
+}
 
 /** HTML 转义 */
 function esc(s: any): string {
@@ -63,7 +142,7 @@ function renderAdmin(): string {
 <title>APS MRP 管理后台</title>
 <style>
   *{box-sizing:border-box}
-  body{font-family:-apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif;margin:0;background:#0f172a;color:#e2e8f0;font-size:13px}
+  body{font-family:"Avenir Next","DIN Alternate","Noto Sans SC",sans-serif;margin:0;background:#0a1017;color:#e2e8f0;font-size:13px;background-image:linear-gradient(rgba(148,163,184,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.025) 1px,transparent 1px);background-size:24px 24px}
   /* header 紧凑 */
   header{background:linear-gradient(90deg,#1e293b,#334155);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #475569}
   header h1{margin:0;font-size:16px;font-weight:600;color:#f1f5f9}
@@ -135,23 +214,40 @@ function renderAdmin(): string {
   .progress-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.site-name{font-size:15px;font-weight:750;color:#f8fafc}.stage{font-size:10px;padding:2px 7px;border-radius:999px;background:#1e293b;color:#94a3b8}.running .stage{background:#172554;color:#60a5fa}.completed .stage{background:#052e16;color:#4ade80}.failed .stage{background:#450a0a;color:#f87171}
   .site-counts{display:flex;justify-content:space-between;margin-top:8px;color:#94a3b8;font-size:10px}.site-counts strong{color:#e2e8f0;font-weight:650}.sync-foot{display:flex;justify-content:space-between;color:#64748b;font-size:10px;margin-top:10px}
   @media(max-width:760px){.sync-head{display:block}.live-pill{margin-top:12px}.sync-stats{grid-template-columns:repeat(2,1fr)}.progress-number{font-size:28px}}
+  .brand{display:flex;align-items:center;gap:11px}.brand-mark{width:34px;height:34px;display:grid;place-items:center;border:1px solid #f59e0b;background:#111827;color:#fbbf24;font:800 11px/1 "DIN Alternate",sans-serif;box-shadow:5px 5px 0 #422006}.brand-copy strong{display:block;font-size:15px;letter-spacing:.06em}.brand-copy span{font-size:9px;letter-spacing:.2em;color:#64748b}
+  .workbench-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr);gap:12px;margin-bottom:12px}.command-card{position:relative;overflow:hidden;background:linear-gradient(125deg,#111923 0%,#132233 60%,#17200f 100%);border:1px solid #334155;border-left:4px solid #f59e0b;border-radius:4px;padding:22px}.command-card:before{content:"MRP";position:absolute;right:-8px;bottom:-35px;font:900 116px/1 "DIN Alternate",sans-serif;color:rgba(255,255,255,.025)}.eyebrow{font-size:10px;letter-spacing:.22em;color:#f59e0b;text-transform:uppercase}.command-card h2{font-size:29px;letter-spacing:-.035em;margin:7px 0 5px;color:#f8fafc}.command-card p{max-width:680px;color:#94a3b8;margin:0;line-height:1.8}.command-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}.action-btn{position:relative;margin:0;padding:10px 15px;border:1px solid #475569;border-radius:3px;background:#17202b;color:#e2e8f0;font-weight:750;letter-spacing:.02em}.action-btn:hover{background:#202b38;border-color:#64748b}.action-btn.primary{background:#d97706;border-color:#f59e0b;color:#160c02}.action-btn.primary:hover{background:#f59e0b}.action-btn.compute{background:#0f766e;border-color:#14b8a6}.action-note{font-size:10px;color:#64748b;align-self:center}
+  .shift-card{background:#101820;border:1px solid #263442;border-radius:4px;padding:17px}.shift-label{font-size:9px;letter-spacing:.2em;color:#64748b}.shift-status{font-size:22px;font-weight:800;margin:7px 0;color:#e2e8f0}.shift-line{height:1px;background:#263442;margin:13px 0}.shift-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shift-meta b{display:block;font-size:16px;color:#f8fafc}.shift-meta span{font-size:9px;color:#64748b;letter-spacing:.08em}.run-terminal{margin-top:12px;background:#070b0f;border:1px solid #263442;border-radius:3px;padding:10px;height:92px;overflow:auto;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#7dd3fc}
+  .formula-strip{display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:8px;margin-bottom:12px}.formula-main,.formula-chip{background:#101820;border:1px solid #263442;border-radius:4px;padding:13px}.formula-main{border-top:3px solid #f59e0b}.formula-main small,.formula-chip small{display:block;color:#64748b;font-size:9px;letter-spacing:.12em;margin-bottom:7px}.formula-main strong{font:700 14px/1.5 ui-monospace,monospace;color:#fbbf24}.formula-chip b{font-size:13px;color:#e2e8f0}.formula-chip p{font-size:10px;color:#64748b;margin:5px 0 0;line-height:1.5}
+  .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{max-height:48vh;overflow:auto;border:1px solid #263442}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
+  @media(max-width:1000px){.workbench-hero{grid-template-columns:1fr}.formula-strip{grid-template-columns:1fr 1fr}.preview-metrics{grid-template-columns:1fr 1fr}}@media(max-width:620px){.formula-strip{grid-template-columns:1fr}.preview-metrics{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header>
-  <h1>📦 APS MRP 管理后台</h1>
+  <div class="brand"><div class="brand-mark">APS</div><div class="brand-copy"><strong>物料需求计划控制台</strong><span>MANUFACTURING RESOURCE SIGNAL SYSTEM</span></div></div>
   <div class="meta">据点: <code>${sites}</code> · 缓存 TTL: ${config.cache.ttlSeconds}s</div>
 </header>
 <div class="tabs">
-  <div class="tab active" data-tab="monitor">① 实时同步</div>
-  <div class="tab" data-tab="dashboard">② 数据总览</div>
-  <div class="tab" data-tab="log">③ 拉取日志</div>
-  <div class="tab" data-tab="query">④ Raw 数据查询</div>
+  <div class="tab active" data-tab="workbench">MRP 工作台</div>
+  <div class="tab" data-tab="monitor">同步监控</div>
+  <div class="tab" data-tab="dashboard">数据总览</div>
+  <div class="tab" data-tab="log">运行日志</div>
+  <div class="tab" data-tab="query">数据字典</div>
 </div>
 <div class="container">
 
+<!-- Panel: MRP Workbench -->
+<div id="panel-workbench" class="panel active">
+  <div class="workbench-hero">
+    <section class="command-card"><div class="eyebrow">Planning cycle / data command</div><h2>从源数据到净需求，一屏完成</h2><p>先选择样本或全量同步，再用当前 MySQL 快照生成净需求预览。同步不包含 raw_base；正式多级 BOM 计算将在下一阶段接入。</p><div class="command-actions"><button class="action-btn primary" id="syncSample">拉取每表 1000 条</button><button class="action-btn" id="syncFull">全量拉取其他模块</button><button class="action-btn compute" id="calcPreview">计算净需求预览</button><span class="action-note">五基地 · 失败保留旧快照 · 禁止并发</span></div></section>
+    <aside class="shift-card"><div class="shift-label">CURRENT PLANNING RUN</div><div id="jobStatus" class="shift-status">等待指令</div><div class="shift-line"></div><div class="shift-meta"><div><b id="jobSite">—</b><span>当前基地</span></div><div><b id="jobRows">0</b><span>当前接口行数</span></div></div><div id="jobTerminal" class="run-terminal">系统就绪，等待同步任务。</div></aside>
+  </div>
+  <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
+  <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">单层快速计算</span></h2></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
+</div>
+
 <!-- Panel 0: Real-time sync monitor -->
-<div id="panel-monitor" class="panel active">
+<div id="panel-monitor" class="panel">
   <div id="sync-monitor" class="sync-hero">加载实时进度...</div>
   <div class="sync-stats">
     <div class="sync-stat"><div class="label">当前对象</div><div class="value">raw_base</div></div>
@@ -228,12 +324,74 @@ document.querySelectorAll('.tab').forEach(t => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     const target = document.getElementById('panel-' + t.dataset.tab);
     target.classList.add('active');
+    if (t.dataset.tab === 'workbench') { loadSyncJob(); }
     if (t.dataset.tab === 'monitor') loadSyncMonitor();
     if (t.dataset.tab === 'dashboard') loadDashboard();
     if (t.dataset.tab === 'log') loadLog();
     if (t.dataset.tab === 'query') loadQuery(1);
   });
 });
+
+async function startSync(mode) {
+  const label = mode === 'sample' ? '每表 1000 条样本同步' : '全量模块同步';
+  if (!confirm('确认开始' + label + '？任务覆盖五个基地，但不包含 raw_base。')) return;
+  const buttons = [document.getElementById('syncSample'), document.getElementById('syncFull')];
+  buttons.forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(API + '/sync/start', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || '启动失败');
+    renderSyncJob(data.job);
+  } catch (e) { alert(e.message); }
+  finally { buttons.forEach(b => b.disabled = false); }
+}
+
+function renderSyncJob(job) {
+  const status = document.getElementById('jobStatus');
+  if (!job) { status.textContent = '等待指令'; return; }
+  status.textContent = job.status === 'running' ? (job.mode === 'sample' ? '样本同步中' : '全量同步中') : (job.status === 'completed' ? '同步完成' : '同步失败');
+  status.style.color = job.status === 'completed' ? '#5eead4' : job.status === 'failed' ? '#fb7185' : '#fbbf24';
+  document.getElementById('jobSite').textContent = job.currentSite || '准备中';
+  document.getElementById('jobRows').textContent = Number(job.rows || 0).toLocaleString();
+  const terminal = document.getElementById('jobTerminal');
+  terminal.textContent = (job.lines || []).slice(-12).join('\\n') || '任务已启动，等待第一批数据…';
+  terminal.scrollTop = terminal.scrollHeight;
+  document.getElementById('syncSample').disabled = job.status === 'running';
+  document.getElementById('syncFull').disabled = job.status === 'running';
+}
+
+async function loadSyncJob() {
+  try { const r = await fetch(API + '/sync/status'); const data = await r.json(); renderSyncJob(data.job); } catch {}
+}
+
+function fmtQty(v) { return Number(v || 0).toLocaleString('zh-CN', {maximumFractionDigits:2}); }
+function htmlEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadMrpPreview() {
+  const site = document.getElementById('mrpSite').value;
+  const result = document.getElementById('mrpResult');
+  result.innerHTML = '<div class="empty-row">正在汇总 ' + site + ' 的需求与供给信号…</div>';
+  const r = await fetch(API + '/mrp/preview?site=' + encodeURIComponent(site) + '&limit=100');
+  const data = await r.json();
+  if (!r.ok) { result.innerHTML = '<div class="empty-row">' + htmlEsc(data.error || '计算失败') + '</div>'; return; }
+  const s = data.summary;
+  document.getElementById('previewMetrics').innerHTML =
+    '<div class="preview-metric"><span>预览物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
+    '<div class="preview-metric"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
+    '<div class="preview-metric alert"><span>净需求合计</span><b>' + fmtQty(s.net_demand) + '</b></div>' +
+    '<div class="preview-metric alert"><span>缺料物料数</span><b>' + fmtQty(s.shortage_materials) + '</b></div>';
+  const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验'];
+  const rows = data.rows.map(x => '<tr><td><code>' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
+    '<td>' + fmtQty(x.gross_demand) + '</td><td>' + fmtQty(x.safety_stock) + '</td><td class="supply-value">' + fmtQty(x.available_stock) + '</td><td class="supply-value">' + fmtQty(x.available_wip) + '</td><td class="supply-value">' + fmtQty(x.special_supply) + '</td><td class="net-positive">' + fmtQty(x.net_demand) + '</td><td>' + fmtQty(x.in_transit) + '</td><td>' + fmtQty(x.inspecting) + '</td></tr>').join('');
+  result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+document.getElementById('syncSample').addEventListener('click', () => startSync('sample'));
+document.getElementById('syncFull').addEventListener('click', () => startSync('full'));
+document.getElementById('calcPreview').addEventListener('click', loadMrpPreview);
+document.getElementById('mrpSite').addEventListener('change', loadMrpPreview);
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '计算中';
@@ -472,13 +630,16 @@ window.__SCHEMA__ = ${JSON.stringify(RAW_SCHEMA)};
 
 // #/pages/patient/index 映射到实时同步页；保留 hash 兼容现有访问地址。
 if (location.hash === '#/pages/patient/index') {
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'monitor'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-monitor'));
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'workbench'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-workbench'));
 }
+loadSyncJob();
+loadMrpPreview();
 loadSyncMonitor();
 loadDashboard();
 loadLog();
 setInterval(loadSyncMonitor, 3000);
+setInterval(loadSyncJob, 2000);
 setInterval(loadDashboard, 10000);
 </script>
 </body>
@@ -492,6 +653,90 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
     // HTML
     if (p === '/admin' || p === '/admin/') {
         htmlResponse(res, renderAdmin());
+        return true;
+    }
+
+    if (p === '/api/admin/sync/status') {
+        jsonResponse(res, 200, { job: activeSyncJob });
+        return true;
+    }
+
+    if (p === '/api/admin/sync/start' && req.method === 'POST') {
+        try {
+            const body = await readJsonBody(req);
+            const mode = body.mode === 'full' ? 'full' : body.mode === 'sample' ? 'sample' : null;
+            if (!mode) {
+                jsonResponse(res, 400, { error: 'mode must be full or sample' });
+                return true;
+            }
+            jsonResponse(res, 202, { job: startModuleSync(mode) });
+        } catch (e) {
+            jsonResponse(res, 409, { error: (e as Error).message });
+        }
+        return true;
+    }
+
+    if (p === '/api/admin/mrp/preview') {
+        const site = (urlObj.searchParams.get('site') || 'LG').toUpperCase();
+        if (!config.sites.includes(site)) {
+            jsonResponse(res, 400, { error: 'unknown site: ' + site });
+            return true;
+        }
+        const limit = Math.min(500, Math.max(1, Number(urlObj.searchParams.get('limit') || 100)));
+        const conn = await mysqlPool().getConnection();
+        try {
+            const sql = `WITH
+              demand AS (
+                SELECT COALESCE(sfba006, main_part) part_no,
+                       SUM(COALESCE(qty,0) * COALESCE(qpa_num,1) / NULLIF(COALESCE(qpa_den,1),0)) gross_demand
+                FROM raw_need WHERE site=? GROUP BY COALESCE(sfba006, main_part)
+              ),
+              stock AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_remain WHERE site=? GROUP BY part_no),
+              wip AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_cj WHERE site=? GROUP BY part_no),
+              special_supply AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_special_supply WHERE site=? GROUP BY part_no),
+              safety AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_safetystock WHERE site=? GROUP BY part_no),
+              transit AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_in_transit WHERE site=? GROUP BY part_no),
+              inspecting AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_testfunc WHERE site=? GROUP BY part_no),
+              parts AS (
+                SELECT part_no FROM demand UNION SELECT part_no FROM stock UNION SELECT part_no FROM wip
+                UNION SELECT part_no FROM special_supply UNION SELECT part_no FROM safety
+              ),
+              item_name AS (
+                SELECT part_no,MAX(name) name,MAX(spec) spec FROM raw_items
+                WHERE site=? AND lang='zh_CN' GROUP BY part_no
+              )
+              SELECT p.part_no,i.name,i.spec,
+                     COALESCE(d.gross_demand,0) gross_demand,COALESCE(sa.qty,0) safety_stock,
+                     COALESCE(s.qty,0) available_stock,COALESCE(w.qty,0) available_wip,
+                     COALESCE(sp.qty,0) special_supply,
+                     GREATEST(0,COALESCE(d.gross_demand,0)+COALESCE(sa.qty,0)-COALESCE(s.qty,0)-COALESCE(w.qty,0)-COALESCE(sp.qty,0)) net_demand,
+                     COALESCE(t.qty,0) in_transit,COALESCE(ins.qty,0) inspecting
+              FROM parts p LEFT JOIN demand d ON d.part_no=p.part_no LEFT JOIN stock s ON s.part_no=p.part_no
+              LEFT JOIN wip w ON w.part_no=p.part_no LEFT JOIN special_supply sp ON sp.part_no=p.part_no
+              LEFT JOIN safety sa ON sa.part_no=p.part_no LEFT JOIN transit t ON t.part_no=p.part_no
+              LEFT JOIN inspecting ins ON ins.part_no=p.part_no LEFT JOIN item_name i ON i.part_no=p.part_no
+              ORDER BY net_demand DESC,p.part_no LIMIT ${limit}`;
+            const params = [site, site, site, site, site, site, site, site];
+            const [rows] = await conn.query(sql, params) as any;
+            const normalized = (rows as any[]).map(row => {
+                const out: any = { ...row };
+                for (const key of ['gross_demand','safety_stock','available_stock','available_wip','special_supply','net_demand','in_transit','inspecting']) {
+                    out[key] = Number(out[key] || 0);
+                }
+                return out;
+            });
+            jsonResponse(res, 200, {
+                site,
+                formula: 'max(0, 毛需求 + 安全库存 - 可用库存 - 可用在制 - 特殊工单供给)',
+                rows: normalized,
+                summary: {
+                    materials: normalized.length,
+                    gross_demand: normalized.reduce((n, x) => n + x.gross_demand, 0),
+                    net_demand: normalized.reduce((n, x) => n + x.net_demand, 0),
+                    shortage_materials: normalized.filter(x => x.net_demand > 0).length,
+                },
+            });
+        } finally { conn.release(); }
         return true;
     }
 
