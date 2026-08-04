@@ -246,7 +246,7 @@ function renderAdmin(): string {
     <aside class="shift-card"><div class="shift-label">CURRENT PLANNING RUN</div><div id="jobStatus" class="shift-status">等待指令</div><div class="shift-line"></div><div class="shift-meta"><div><b id="jobSite">—</b><span>当前基地</span></div><div><b id="jobRows">0</b><span>当前接口行数</span></div></div><div id="jobTerminal" class="run-terminal">系统就绪，等待同步任务。</div></aside>
   </div>
   <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
-  <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">全部物料实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
+  <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">全部物料实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>BOM </label><select id="mrpBomFilter"><option value="all">全部物料</option><option value="hasBom">仅有下阶物料</option></select> <label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
 </div>
 <div id="formulaTooltip" class="formula-tooltip"></div>
 
@@ -428,9 +428,10 @@ function qtyCell(value, className, formula, source) {
 
 async function loadMrpPreview() {
   const site = document.getElementById('mrpSite').value;
+  const hasBomOnly = document.getElementById('mrpBomFilter').value === 'hasBom';
   const result = document.getElementById('mrpResult');
   result.innerHTML = '<div class="empty-row">正在汇总 ' + site + ' 的需求与供给信号…</div>';
-  const r = await fetch(API + '/mrp/preview?site=' + encodeURIComponent(site));
+  const r = await fetch(API + '/mrp/preview?site=' + encodeURIComponent(site) + (hasBomOnly ? '&hasBom=1' : ''));
   const data = await r.json();
   if (!r.ok) { result.innerHTML = '<div class="empty-row">' + htmlEsc(data.error || '计算失败') + '</div>'; return; }
   const s = data.summary;
@@ -448,7 +449,7 @@ async function loadMrpPreview() {
   const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验','操作'];
   const rows = data.rows.map(x => {
     const netFormula = 'MAX(0, ' + fmtQty(x.gross_demand) + ' + ' + fmtQty(x.safety_stock) + ' - ' + fmtQty(x.available_stock) + ' - ' + fmtQty(x.available_wip) + ' - ' + fmtQty(x.special_supply) + ')';
-    return '<tr><td><code class="bom-link" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '" title="双击查看 BOM">' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
+    return '<tr><td><code class="bom-link ' + (x.has_bom ? '' : 'leaf') + '" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '" title="' + (x.has_bom ? '双击查看 BOM' : '没有下阶 BOM') + '">' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
       qtyCell(x.gross_demand, '', 'Σ(qty × qpa_num ÷ qpa_den)', 'raw_need.qty、qpa_num、qpa_den') +
       qtyCell(x.safety_stock, '', 'Σ(qty)', 'raw_safetystock.qty') +
       qtyCell(x.available_stock, 'supply-value', 'Σ(qty)', 'raw_remain.qty') +
@@ -457,7 +458,7 @@ async function loadMrpPreview() {
       qtyCell(x.net_demand, 'net-positive', netFormula, '上述需求与供给字段实时计算') +
       qtyCell(x.in_transit, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_in_transit.qty') +
       qtyCell(x.inspecting, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_testfunc.qty') +
-      '<td><button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '">BOM 详情</button></td></tr>';
+      '<td>' + (x.has_bom ? '<button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '">BOM 详情</button>' : '<span class="leaf">无下阶</span>') + '</td></tr>';
   }).join('');
   result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
@@ -545,6 +546,7 @@ document.getElementById('syncSample').addEventListener('click', () => startSync(
 document.getElementById('syncFull').addEventListener('click', () => startSync('full'));
 document.getElementById('calcPreview').addEventListener('click', loadMrpPreview);
 document.getElementById('mrpSite').addEventListener('change', loadMrpPreview);
+document.getElementById('mrpBomFilter').addEventListener('change', loadMrpPreview);
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '计算中';
@@ -846,6 +848,7 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
 
     if (p === '/api/admin/mrp/preview') {
         const site = (urlObj.searchParams.get('site') || 'LG').toUpperCase();
+        const hasBomOnly = urlObj.searchParams.get('hasBom') === '1';
         if (!config.sites.includes(site)) {
             jsonResponse(res, 400, { error: 'unknown site: ' + site });
             return true;
@@ -872,25 +875,31 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
               item_name AS (
                 SELECT part_no,MAX(name) name,MAX(spec) spec FROM raw_items
                 WHERE site=? AND lang='zh_CN' GROUP BY part_no
-              )
+              ),
+              bom_parent AS (SELECT DISTINCT main_part part_no FROM raw_bom WHERE site=?)
               SELECT p.part_no,i.name,i.spec,
                      COALESCE(d.gross_demand,0) gross_demand,COALESCE(sa.qty,0) safety_stock,
                      COALESCE(s.qty,0) available_stock,COALESCE(w.qty,0) available_wip,
                      COALESCE(sp.qty,0) special_supply,
                      GREATEST(0,COALESCE(d.gross_demand,0)+COALESCE(sa.qty,0)-COALESCE(s.qty,0)-COALESCE(w.qty,0)-COALESCE(sp.qty,0)) net_demand,
-                     COALESCE(t.qty,0) in_transit,COALESCE(ins.qty,0) inspecting
+                     COALESCE(t.qty,0) in_transit,COALESCE(ins.qty,0) inspecting,
+                     bp.part_no IS NOT NULL has_bom
               FROM parts p LEFT JOIN demand d ON d.part_no=p.part_no LEFT JOIN stock s ON s.part_no=p.part_no
               LEFT JOIN wip w ON w.part_no=p.part_no LEFT JOIN special_supply sp ON sp.part_no=p.part_no
               LEFT JOIN safety sa ON sa.part_no=p.part_no LEFT JOIN transit t ON t.part_no=p.part_no
               LEFT JOIN inspecting ins ON ins.part_no=p.part_no LEFT JOIN item_name i ON i.part_no=p.part_no
+              LEFT JOIN bom_parent bp ON bp.part_no=p.part_no
+              WHERE (?=0 OR bp.part_no IS NOT NULL)
               ORDER BY net_demand DESC,p.part_no`;
-            const params = [site, site, site, site, site, site, site, site];
-            const [rows] = await conn.query(sql, params) as any;
+            const snapshotParams = [site, site, site, site, site, site, site, site];
+            const queryParams = [...snapshotParams, site, hasBomOnly ? 1 : 0];
+            const [rows] = await conn.query(sql, queryParams) as any;
             const normalized = (rows as any[]).map(row => {
                 const out: any = { ...row };
                 for (const key of ['gross_demand','safety_stock','available_stock','available_wip','special_supply','net_demand','in_transit','inspecting']) {
                     out[key] = Number(out[key] || 0);
                 }
+                out.has_bom = Boolean(out.has_bom);
                 return out;
             });
             const [snapshotRows] = await conn.query(
@@ -904,11 +913,12 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
                    SELECT MAX(pulled_at) FROM raw_testfunc WHERE site=? UNION ALL
                    SELECT MAX(pulled_at) FROM raw_items WHERE site=?
                  ) snapshots`,
-                params,
+                snapshotParams,
             ) as any;
             const snapshotAt = (snapshotRows as any[])[0]?.snapshot_at;
             jsonResponse(res, 200, {
                 site,
+                filter: hasBomOnly ? 'has_bom' : 'all',
                 calculated_at: new Date().toISOString(),
                 duration_ms: Date.now() - calculationStartedAt,
                 snapshot_at: snapshotAt instanceof Date ? snapshotAt.toISOString() : snapshotAt || null,
