@@ -326,21 +326,45 @@ function esc(value) {
   })[c]);
 }
 
-// ============ Tab 切换 ============
+// ============ Tab hash 路由 ============
+const TAB_ROUTES = {
+  workbench: '#/mrp/workbench',
+  monitor: '#/sync/monitor',
+  dashboard: '#/data/overview',
+  log: '#/pull/logs',
+  query: '#/data/dictionary',
+};
+const LEGACY_ROUTES = {'#/pages/patient/index': 'workbench'};
+
+function activateTab(tabName) {
+  const safeTab = TAB_ROUTES[tabName] ? tabName : 'workbench';
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === safeTab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + safeTab));
+  if (safeTab === 'workbench') { loadSyncJob(); loadMrpPreview(); }
+  if (safeTab === 'monitor') loadSyncMonitor();
+  if (safeTab === 'dashboard') loadDashboard();
+  if (safeTab === 'log') loadLog(1);
+  if (safeTab === 'query') loadQuery(1);
+}
+
+function activateCurrentRoute() {
+  const tabName = LEGACY_ROUTES[location.hash] || Object.keys(TAB_ROUTES).find(name => TAB_ROUTES[name] === location.hash);
+  if (!tabName) {
+    history.replaceState(null, '', TAB_ROUTES.workbench);
+    activateTab('workbench');
+    return;
+  }
+  activateTab(tabName);
+}
+
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    const target = document.getElementById('panel-' + t.dataset.tab);
-    target.classList.add('active');
-    if (t.dataset.tab === 'workbench') { loadSyncJob(); }
-    if (t.dataset.tab === 'monitor') loadSyncMonitor();
-    if (t.dataset.tab === 'dashboard') loadDashboard();
-    if (t.dataset.tab === 'log') loadLog();
-    if (t.dataset.tab === 'query') loadQuery(1);
+    const route = TAB_ROUTES[t.dataset.tab];
+    if (location.hash === route) activateTab(t.dataset.tab);
+    else location.hash = route;
   });
 });
+window.addEventListener('hashchange', activateCurrentRoute);
 
 async function startSync(mode) {
   const label = mode === 'sample' ? '每表 1000 条样本同步' : '全量模块同步';
@@ -661,16 +685,8 @@ document.getElementById('qTable').value = 'raw_base';
 // 初始化：把 schema 嵌入页面供前端用
 window.__SCHEMA__ = ${JSON.stringify(RAW_SCHEMA)};
 
-// #/pages/patient/index 映射到实时同步页；保留 hash 兼容现有访问地址。
-if (location.hash === '#/pages/patient/index') {
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'workbench'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-workbench'));
-}
-loadSyncJob();
-loadMrpPreview();
-loadSyncMonitor();
-loadDashboard();
-loadLog();
+// 旧的 #/pages/patient/index 仍映射到 MRP 工作台。
+activateCurrentRoute();
 setInterval(loadSyncMonitor, 3000);
 setInterval(loadSyncJob, 2000);
 setInterval(loadDashboard, 10000);
