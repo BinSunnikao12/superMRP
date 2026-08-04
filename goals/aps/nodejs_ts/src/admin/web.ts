@@ -445,7 +445,7 @@ async function loadMrpPreview() {
     '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：Σ(每个物料的毛需求)\\n来源：raw_need.qty × qpa_num ÷ qpa_den\\n结果：' + fmtQty(s.gross_demand)) + '"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
     '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：Σ MAX(0, 毛需求 + 安全库存 - 库存 - 在制 - 特殊供给)\\n来源：raw_need、raw_safetystock、raw_remain、raw_cj、raw_special_supply\\n结果：' + fmtQty(s.net_demand)) + '"><span>净需求合计</span><b>' + fmtQty(s.net_demand) + '</b></div>' +
     '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：COUNT(净需求 > 0 的料号)\\n来源：全部物料净需求计算结果\\n结果：' + fmtQty(s.shortage_materials)) + '"><span>缺料物料数</span><b>' + fmtQty(s.shortage_materials) + '</b></div>';
-  const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验'];
+  const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验','操作'];
   const rows = data.rows.map(x => {
     const netFormula = 'MAX(0, ' + fmtQty(x.gross_demand) + ' + ' + fmtQty(x.safety_stock) + ' - ' + fmtQty(x.available_stock) + ' - ' + fmtQty(x.available_wip) + ' - ' + fmtQty(x.special_supply) + ')';
     return '<tr><td><code class="bom-link" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '" title="双击查看 BOM">' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
@@ -456,7 +456,8 @@ async function loadMrpPreview() {
       qtyCell(x.special_supply, 'supply-value', 'Σ(qty)', 'raw_special_supply.qty') +
       qtyCell(x.net_demand, 'net-positive', netFormula, '上述需求与供给字段实时计算') +
       qtyCell(x.in_transit, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_in_transit.qty') +
-      qtyCell(x.inspecting, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_testfunc.qty') + '</tr>';
+      qtyCell(x.inspecting, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_testfunc.qty') +
+      '<td><button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '">BOM 详情</button></td></tr>';
   }).join('');
   result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
