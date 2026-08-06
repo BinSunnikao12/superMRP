@@ -223,10 +223,31 @@ function renderAdmin(): string {
   .formula-value{cursor:help;text-decoration:underline dotted rgba(251,191,36,.45);text-underline-offset:3px}.formula-tooltip{display:none;position:fixed;z-index:1000;max-width:420px;padding:11px 13px;border:1px solid #f59e0b;border-radius:4px;background:#080d13;color:#dbeafe;box-shadow:0 12px 36px rgba(0,0,0,.55);white-space:pre-line;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}.formula-tooltip.visible{display:block}
   .bom-link{cursor:zoom-in;border-bottom:1px dashed #f59e0b}.bom-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.bom-title{font-size:22px;font-weight:800;color:#f8fafc}.bom-sub{margin-top:5px;color:#64748b;font-size:11px}.bom-path{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0;color:#94a3b8}.bom-node{padding:3px 8px;border:1px solid #334155;background:#0f172a;color:#fbbf24;border-radius:3px}.drillable{color:#fbbf24}.leaf{color:#64748b}.bom-actions{display:flex;gap:7px;align-items:center}
   .mrp-filters{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 10px}.mrp-filters input{min-width:220px}.sort-btn{background:#17202b;border:1px solid #475569}.sort-btn.active{background:#0f766e;border-color:#14b8a6}.bom-count{color:#fbbf24;font-weight:750}
-  /* ===== 两栏工作区: 左边列表 + 右边详情抽屉 ===== */
-  .mrp-workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(380px,0.55fr);gap:12px;align-items:start}
+  /* ===== 两栏工作区: 左解释 / 右表格+BOM ===== */
+  .mrp-workspace{display:grid;grid-template-columns:minmax(340px,0.4fr) minmax(0,1fr);gap:12px;align-items:start}
+  .mrp-explain{position:sticky;top:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:14px;max-height:calc(100vh - 24px);overflow:auto}
+  .mrp-explain-head{padding-bottom:8px;border-bottom:1px solid #263442;margin-bottom:10px}
   .mrp-list{min-width:0;display:flex;flex-direction:column;gap:10px}
-  .mrp-detail{position:sticky;top:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:14px;max-height:calc(100vh - 24px);overflow:auto}
+  .mrp-detail-card{padding:14px}
+  /* 公式解释 */
+  .explain-block{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #263442}
+  .explain-block:last-child{border-bottom:0;margin-bottom:0}
+  .explain-h4{font-size:11px;color:#fbbf24;letter-spacing:.12em;margin:0 0 8px;text-transform:uppercase}
+  .explain-step{display:inline-block;padding:5px 10px;border:1px solid #475569;background:#0f172a;border-radius:3px;font-size:12px;color:#cbd5e1;margin:2px 0}
+  .explain-step.highlight{border-color:#f59e0b;background:#422006;color:#fde68a;font-weight:600}
+  .explain-arrow{font-size:10px;color:#475569;margin:3px 0 3px 12px;font-family:ui-monospace,monospace}
+  .explain-split{display:flex;gap:6px;margin:4px 0 4px 12px}
+  .explain-branch{flex:1;padding:4px 8px;border:1px dashed #475569;border-radius:3px;font-size:11px;color:#94a3b8;text-align:center}
+  .formula-row{padding:4px 8px;margin-bottom:3px;background:#0c131b;border:1px solid #1e293b;border-radius:3px;font-size:11px;font-family:ui-monospace,monospace;color:#cbd5e1;cursor:help;transition:border-color .15s}
+  .formula-row:hover{border-color:#f59e0b;background:#172033}
+  .formula-row b{color:#fbbf24}
+  .glossary{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+  .glossary-row{padding:3px 6px;font-size:11px;background:#0c131b;border:1px solid #1e293b;border-radius:2px;cursor:help}
+  .glossary-row:hover{border-color:#f59e0b}
+  .glossary-row b{color:#93c5fd;display:block;font-size:10px}
+  .glossary-row span{color:#64748b;font-size:10px}
+  /* 响应式: 屏幕窄时降为单列 */
+  @media(max-width:1180px){.mrp-workspace{grid-template-columns:1fr}.mrp-explain{position:static;max-height:480px}}
   .mrp-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #263442}
   .mrp-detail-title{font-size:13px;font-weight:700;color:#93c5fd}
   .mrp-detail-back{background:#17202b;border:1px solid #475569;color:#cbd5e1;margin:0;padding:4px 10px}
@@ -268,29 +289,74 @@ function renderAdmin(): string {
     <aside class="shift-card"><div class="shift-label">CURRENT PLANNING RUN</div><div id="jobStatus" class="shift-status">等待指令</div><div class="shift-line"></div><div class="shift-meta"><div><b id="jobSite">—</b><span>当前基地</span></div><div><b id="jobRows">0</b><span>当前接口行数</span></div></div><div id="jobTerminal" class="run-terminal">系统就绪，等待同步任务。</div></aside>
   </div>
   <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
-  <div class=”mrp-workspace”>
-    <!-- 左栏: 筛选 + 指标 + 净需求表 + 分页 -->
-    <div class=”mrp-list”>
-      <div class=”card mrp-toolbar-card”>
-        <div class=”mrp-toolbar”><div><h2>净需求信号预览 <span class=”mode-badge”>服务端分页实时计算</span></h2><div id=”previewFreshness” class=”freshness”><span>尚未计算</span></div></div><div><label>基地 </label><select id=”mrpSite”><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div>
-        <div class=”mrp-filters”><input id=”mrpKeyword” placeholder=”搜索料号、名称或规格”/><select id=”mrpBomFilter”><option value=”all”>全部 BOM 状态</option><option value=”hasBom”>仅有下阶物料</option><option value=”noBom”>仅无下阶物料</option></select><select id=”mrpShortageFilter”><option value=”all”>全部需求状态</option><option value=”shortage”>仅净需求 &gt; 0</option><option value=”covered”>仅净需求 = 0</option></select><label>每页</label><select id=”mrpPageSize”><option>20</option><option selected>50</option><option>100</option></select><button id=”mrpSearch”>筛选</button><button id=”mrpReset”>重置</button><span style=”color:#64748b;font-size:11px”>排序</span><button class=”sort-btn active” data-sort=”net_desc”>净需求 ↓</button><button class=”sort-btn” data-sort=”gross_desc”>毛需求 ↓</button><button class=”sort-btn” data-sort=”bom_desc”>下阶数 ↓</button><button class=”sort-btn” data-sort=”part_asc”>料号 ↑</button></div>
-        <div id=”previewMetrics” class=”preview-metrics”></div>
-        <div id=”mrpResult” class=”mrp-result”><div class=”empty-row”>同步数据后，点击”计算净需求预览”</div></div>
-        <div id=”mrpPager” class=”pagination”></div>
+  <div class="mrp-workspace">
+    <!-- 左栏: 公式解释 + 术语表（粘性, 可滚动） -->
+    <aside class="mrp-explain" id="mrpExplain">
+      <div class="mrp-explain-head">
+        <div class="mrp-detail-title">核心运算逻辑 / 计算依赖</div>
+        <div style="font-size:10px;color:#64748b;margin-top:3px">悬停单元格看公式 · 点击料号看 BOM</div>
       </div>
-    </div>
+      <div class="mrp-explain-body">
+        <!-- 流程图 -->
+        <div class="explain-block">
+          <div class="explain-step" data-tip="毛需求 = 需求量 × QPA(QPA 分子/QPA 分母)">① 毛需求</div>
+          <div class="explain-arrow">↓ 扣库存 → 扣在制 → 扣 GD01</div>
+          <div class="explain-step highlight" data-tip="净需求 = max(0, 毛需求 − 可用库存 − 可用在制 − GD01可用工单数)">② 净需求</div>
+          <div class="explain-arrow">↓ 加损耗/批量取整</div>
+          <div class="explain-step highlight" data-tip="最终净需求 = ceil(净需求 × (1+损耗率/100) / 批量) × 批量 (生产批量 IMAE017 当前固定 1)">③ 最终净需求</div>
+          <div class="explain-arrow">↓ 分叉</div>
+          <div class="explain-split">
+            <div class="explain-branch" data-tip="外购件不再展开 BOM,走采购需求明细">外购 → 采购</div>
+            <div class="explain-branch" data-tip="自制件按成本中心/料号/日期聚合后,先匹配已有工单供给(按日期先到先得),剩余为生产需求">自制 → 生产</div>
+          </div>
+        </div>
 
-    <!-- 右栏: BOM 详情抽屉(选中料件后实时显示) -->
-    <aside class=”mrp-detail” id=”mrpDetail”>
-      <div class=”mrp-detail-head”><div class=”mrp-detail-title”>BOM 详情 / 下阶钻取</div></div>
-      <div class=”mrp-detail-body”>
-        <div class=”mrp-empty”>
-          <span class=”arrow”>←</span>
-          在左侧表格中<strong>点击料号</strong>或<strong>”查看 BOM”按钮</strong><br/>
-          这里会显示该料件的 BOM 结构 + 各级下阶数量
+        <!-- 5 个关键公式 -->
+        <div class="explain-block">
+          <h4 class="explain-h4">关键公式</h4>
+          <div class="formula-row" data-tip="<b>公式</b>: 毛需求 = 需求数量 × QPA\n<b>来源</b>: 父件需求 × BOM 用量\n<b>示例</b>: 100 件 × QPA=2 → 200"><b>1. 毛需求</b>=需求量 × QPA</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 净需求 = max(0, 毛需求 − 可用库存 − 可用在制 − GD01)\n<b>扣减顺序</b>: 库存 → 在制 → GD01 (消耗性)\n<b>示例</b>: 200 − 50 − 30 − 0 = 120"><b>2. 净需求</b>=毛需求−库存−在制−GD01</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 最终净需求 = ceil(净需求 × (1+损耗率/100) / 批量) × 批量\n<b>示例</b>: 100 × 1.05 / 1 × 1 = 105 (向上取整)"><b>3. 取整</b>=ceil(净需×(1+损耗)/批量)×批量</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 预计开工 = 预计完工 − 前置时间\n<b>前置</b>=MySQL配置 → 否则固定+变动+QC+累计\n<b>特例</b>: LG 喷塑车间+1天; 虚拟件=0"><b>4. 倒推</b>开工=完工−前置</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 齐套数 = min(子件库存/子件BOM用量), 初始=∞\n<b>含义</b>: 当前库存能凑齐多少整套\n<b>示例</b>: B1=100, B2=50/2=25, B3=60/3=20 → 齐套=min=20"><b>5. 齐套</b>=min(库存/用量)</div>
+        </div>
+
+        <!-- 术语表 -->
+        <div class="explain-block">
+          <h4 class="explain-h4">术语速查</h4>
+          <div class="glossary">
+            <div class="glossary-row" data-tip="<b>毛需求</b> Gross Requirement: 未扣库存的原始需求量"><b>毛需求</b><span>=需求×QPA</span></div>
+            <div class="glossary-row" data-tip="<b>净需求</b> Net Requirement: 扣完库存/在制/工单供给后仍需生产的量"><b>净需求</b><span>扣减后</span></div>
+            <div class="glossary-row" data-tip="<b>QPA</b> Quantity Per Assembly: BOM 单位用量 (分子/分母)"><b>QPA</b><span>单位用量</span></div>
+            <div class="glossary-row" data-tip="<b>前置时间</b> Lead Time: 从开工到完工所需天数"><b>前置时间</b><span>天数</span></div>
+            <div class="glossary-row" data-tip="<b>齐套数</b> Kit Qty: 当前库存能完整配套的最大套数"><b>齐套数</b><span>配套数</span></div>
+            <div class="glossary-row" data-tip="<b>虚拟件</b> Phantom Item: 不入库的结构层,用量向下穿透相乘"><b>虚拟件</b><span>类别X</span></div>
+          </div>
         </div>
       </div>
     </aside>
+
+    <!-- 右栏: 净需求表 + BOM 钻取(嵌在表下方) -->
+    <div class="mrp-list">
+      <div class="card mrp-toolbar-card">
+        <div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">服务端分页实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div>
+        <div class="mrp-filters"><input id="mrpKeyword" placeholder="搜索料号、名称或规格"/><select id="mrpBomFilter"><option value="all">全部 BOM 状态</option><option value="hasBom">仅有下阶物料</option><option value="noBom">仅无下阶物料</option></select><select id="mrpShortageFilter"><option value="all">全部需求状态</option><option value="shortage">仅净需求 &gt; 0</option><option value="covered">仅净需求 = 0</option></select><label>每页</label><select id="mrpPageSize"><option>20</option><option selected>50</option><option>100</option></select><button id="mrpSearch">筛选</button><button id="mrpReset">重置</button><span style="color:#64748b;font-size:11px">排序</span><button class="sort-btn active" data-sort="net_desc">净需求 ↓</button><button class="sort-btn" data-sort="gross_desc">毛需求 ↓</button><button class="sort-btn" data-sort="bom_desc">下阶数 ↓</button><button class="sort-btn" data-sort="part_asc">料号 ↑</button></div>
+        <div id="previewMetrics" class="preview-metrics"></div>
+        <div id="mrpResult" class="mrp-result"><div class="empty-row">同步数据后，点击"计算净需求预览"</div></div>
+        <div id="mrpPager" class="pagination"></div>
+      </div>
+      <!-- BOM 详情内嵌在右栏底部 -->
+      <div class="card mrp-detail-card" id="mrpDetail">
+        <div class="mrp-detail-head"><div class="mrp-detail-title">BOM 详情 / 下阶钻取</div></div>
+        <div class="mrp-detail-body">
+          <div class="mrp-empty">
+            <span class="arrow">↑</span>
+            在右侧表格中<strong>点击料号</strong>或<strong>"查看 BOM"按钮</strong><br/>
+            这里会显示该料件的 BOM 结构 + 各级下阶数量
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <div id="formulaTooltip" class="formula-tooltip"></div>
@@ -521,9 +587,9 @@ async function loadMrpPreview(page = 1) {
 
 const formulaTooltip = document.getElementById('formulaTooltip');
 document.addEventListener('mouseover', e => {
-  const target = e.target.closest && e.target.closest('.formula-value');
-  if (!target || !target.dataset.explain) return;
-  formulaTooltip.textContent = target.dataset.explain;
+  const target = e.target.closest && (e.target.closest('.formula-value') || e.target.closest('[data-tip]'));
+  if (!target || !target.dataset.explain && !target.dataset.tip) return;
+  formulaTooltip.innerHTML = target.dataset.explain || target.dataset.tip || '';
   formulaTooltip.classList.add('visible');
 });
 document.addEventListener('mousemove', e => {
@@ -532,7 +598,7 @@ document.addEventListener('mousemove', e => {
   formulaTooltip.style.top = Math.max(8, Math.min(e.clientY + 14, window.innerHeight - 180)) + 'px';
 });
 document.addEventListener('mouseout', e => {
-  const target = e.target.closest && e.target.closest('.formula-value');
+  const target = e.target.closest && (e.target.closest('.formula-value') || e.target.closest('[data-tip]'));
   if (target && !target.contains(e.relatedTarget)) formulaTooltip.classList.remove('visible');
 });
 
