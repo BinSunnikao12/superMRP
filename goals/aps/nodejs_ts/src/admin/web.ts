@@ -218,7 +218,7 @@ function renderAdmin(): string {
   .workbench-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr);gap:12px;margin-bottom:12px}.command-card{position:relative;overflow:hidden;background:linear-gradient(125deg,#111923 0%,#132233 60%,#17200f 100%);border:1px solid #334155;border-left:4px solid #f59e0b;border-radius:4px;padding:22px}.command-card:before{content:"MRP";position:absolute;right:-8px;bottom:-35px;font:900 116px/1 "DIN Alternate",sans-serif;color:rgba(255,255,255,.025)}.eyebrow{font-size:10px;letter-spacing:.22em;color:#f59e0b;text-transform:uppercase}.command-card h2{font-size:29px;letter-spacing:-.035em;margin:7px 0 5px;color:#f8fafc}.command-card p{max-width:680px;color:#94a3b8;margin:0;line-height:1.8}.command-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}.action-btn{position:relative;margin:0;padding:10px 15px;border:1px solid #475569;border-radius:3px;background:#17202b;color:#e2e8f0;font-weight:750;letter-spacing:.02em}.action-btn:hover{background:#202b38;border-color:#64748b}.action-btn.primary{background:#d97706;border-color:#f59e0b;color:#160c02}.action-btn.primary:hover{background:#f59e0b}.action-btn.compute{background:#0f766e;border-color:#14b8a6}.action-note{font-size:10px;color:#64748b;align-self:center}
   .shift-card{background:#101820;border:1px solid #263442;border-radius:4px;padding:17px}.shift-label{font-size:9px;letter-spacing:.2em;color:#64748b}.shift-status{font-size:22px;font-weight:800;margin:7px 0;color:#e2e8f0}.shift-line{height:1px;background:#263442;margin:13px 0}.shift-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shift-meta b{display:block;font-size:16px;color:#f8fafc}.shift-meta span{font-size:9px;color:#64748b;letter-spacing:.08em}.run-terminal{margin-top:12px;background:#070b0f;border:1px solid #263442;border-radius:3px;padding:10px;height:92px;overflow:auto;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#7dd3fc}
   .formula-strip{display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:8px;margin-bottom:12px}.formula-main,.formula-chip{background:#101820;border:1px solid #263442;border-radius:4px;padding:13px}.formula-main{border-top:3px solid #f59e0b}.formula-main small,.formula-chip small{display:block;color:#64748b;font-size:9px;letter-spacing:.12em;margin-bottom:7px}.formula-main strong{font:700 14px/1.5 ui-monospace,monospace;color:#fbbf24}.formula-chip b{font-size:13px;color:#e2e8f0}.formula-chip p{font-size:10px;color:#64748b;margin:5px 0 0;line-height:1.5}
-  .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{border:1px solid #263442;overflow:visible}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
+  .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{border:1px solid #263442;overflow:auto;max-height:calc(100vh - 360px);min-height:240px}.mrp-result table thead th{position:sticky;top:0;z-index:2;background:#0f172a}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
   .freshness{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:10px}.freshness b{color:#cbd5e1;font-weight:650}
   .formula-value{cursor:help;text-decoration:underline dotted rgba(251,191,36,.45);text-underline-offset:3px}.formula-tooltip{display:none;position:fixed;z-index:1000;max-width:420px;padding:11px 13px;border:1px solid #f59e0b;border-radius:4px;background:#080d13;color:#dbeafe;box-shadow:0 12px 36px rgba(0,0,0,.55);white-space:pre-line;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}.formula-tooltip.visible{display:block}
   .bom-link{cursor:zoom-in;border-bottom:1px dashed #f59e0b}.bom-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.bom-title{font-size:22px;font-weight:800;color:#f8fafc}.bom-sub{margin-top:5px;color:#64748b;font-size:11px}.bom-path{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0;color:#94a3b8}.bom-node{padding:3px 8px;border:1px solid #334155;background:#0f172a;color:#fbbf24;border-radius:3px}.drillable{color:#fbbf24}.leaf{color:#64748b}.bom-actions{display:flex;gap:7px;align-items:center}
@@ -227,7 +227,7 @@ function renderAdmin(): string {
   .mrp-workspace{display:grid;grid-template-columns:minmax(340px,0.4fr) minmax(0,1fr);gap:12px;align-items:start}
   .mrp-explain{position:sticky;top:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:14px;max-height:calc(100vh - 24px);overflow:auto}
   .mrp-explain-head{padding-bottom:8px;border-bottom:1px solid #263442;margin-bottom:10px}
-  .mrp-list{min-width:0;display:flex;flex-direction:column;gap:10px}
+  .mrp-list{min-width:0;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);overflow:hidden}
   .mrp-detail-card{padding:14px}
   /* 公式解释 */
   .explain-block{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #263442}
@@ -248,6 +248,27 @@ function renderAdmin(): string {
   .glossary-row span{color:#64748b;font-size:10px}
   /* 响应式: 屏幕窄时降为单列 */
   @media(max-width:1180px){.mrp-workspace{grid-template-columns:1fr}.mrp-explain{position:static;max-height:480px}}
+  /* BOM 钻取 modal 浮层 */
+  .bom-modal{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center}
+  .bom-modal-mask{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(2px)}
+  .bom-modal-body{position:relative;width:min(960px,92vw);max-height:88vh;background:#1e293b;border:1px solid #475569;border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 60px rgba(0,0,0,.7)}
+  .bom-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:10px;border-bottom:1px solid #263442}
+  .bom-modal-title{font-size:18px;font-weight:800;color:#f8fafc;margin-top:3px}
+  .bom-modal-meta{margin-top:4px;font-size:11px;color:#94a3b8;line-height:1.6}
+  .bom-modal-close{background:transparent;border:1px solid #475569;color:#cbd5e1;font-size:24px;width:34px;height:34px;border-radius:3px;cursor:pointer;line-height:1}
+  .bom-modal-close:hover{background:#dc2626;border-color:#ef4444;color:#fff}
+  .bom-modal-path{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px;background:#0c131b;border-radius:3px;color:#cbd5e1;font-size:12px}
+  .bom-modal-path .bom-node{padding:3px 8px;border:1px solid #475569;background:#1e293b;border-radius:3px;cursor:pointer;color:#fbbf24}
+  .bom-modal-path .bom-node:hover{background:#334155}
+  .bom-modal-content{flex:1;overflow:auto;border:1px solid #263442;border-radius:3px;background:#0a1017}
+  .bom-modal-content table{font-size:12px}
+  .bom-modal-content td{font-family:ui-monospace,monospace;font-size:12px}
+  .bom-modal-pager{text-align:right;color:#94a3b8;font-size:12px}
+  .bom-modal-pager button{margin:0 2px;padding:3px 10px;font-size:11px}
+  .bom-link-detail{cursor:zoom-in;border-bottom:1px dashed #f59e0b;padding:1px 4px;background:rgba(245,158,11,.1);border-radius:2px}
+  .bom-link-detail.leaf{cursor:default;border-bottom-color:#475569;background:transparent;color:#94a3b8}
+  .bom-open-detail{background:#0f766e;border:1px solid #14b8a6;color:#fff;padding:2px 8px;font-size:11px;border-radius:3px;cursor:pointer}
+  .bom-open-detail:hover{background:#14b8a6}
   .mrp-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #263442}
   .mrp-detail-title{font-size:13px;font-weight:700;color:#93c5fd}
   .mrp-detail-back{background:#17202b;border:1px solid #475569;color:#cbd5e1;margin:0;padding:4px 10px}
@@ -344,17 +365,6 @@ function renderAdmin(): string {
         <div id="previewMetrics" class="preview-metrics"></div>
         <div id="mrpResult" class="mrp-result"><div class="empty-row">同步数据后，点击"计算净需求预览"</div></div>
         <div id="mrpPager" class="pagination"></div>
-      </div>
-      <!-- BOM 详情内嵌在右栏底部 -->
-      <div class="card mrp-detail-card" id="mrpDetail">
-        <div class="mrp-detail-head"><div class="mrp-detail-title">BOM 详情 / 下阶钻取</div></div>
-        <div class="mrp-detail-body">
-          <div class="mrp-empty">
-            <span class="arrow">↑</span>
-            在右侧表格中<strong>点击料号</strong>或<strong>"查看 BOM"按钮</strong><br/>
-            这里会显示该料件的 BOM 结构 + 各级下阶数量
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -639,18 +649,34 @@ async function selectPartForDetail(site, part) {
   detailCurrentPart = part;
   detailTrail = [];
   detailPage = 1;
+  // 打开 modal
+  const modal = document.getElementById('bomModal');
+  if (modal) modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
   await loadBomDetail();
 }
 
+function closeBomModal() {
+  const modal = document.getElementById('bomModal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+  detailCurrentSite = '';
+  detailCurrentPart = '';
+  detailTrail = [];
+  detailPage = 1;
+}
+
 async function loadBomDetail() {
-  const detail = document.getElementById('mrpDetail');
-  if (!detailCurrentPart) {
-    detail.querySelector('.mrp-detail-body').innerHTML =
-      '<div class="mrp-empty"><span class="arrow">←</span>在左侧表格中<strong>点击料号</strong>或<strong>"查看 BOM"按钮</strong><br/>这里会显示该料件的 BOM 结构 + 各级下阶数量</div>';
-    return;
-  }
-  detail.querySelector('.mrp-detail-body').innerHTML =
-    '<div class="empty-row">正在读取 ' + htmlEsc(detailCurrentPart) + ' 的 BOM…</div>';
+  const content = document.getElementById('bomModalContent');
+  const title = document.getElementById('bomModalTitle');
+  const meta = document.getElementById('bomModalMeta');
+  const pager = document.getElementById('bomModalPager');
+  const pathEl = document.getElementById('bomModalPath');
+
+  if (!detailCurrentPart) { closeBomModal(); return; }
+  content.innerHTML = '<div class="empty-row" style="padding:40px">正在读取 ' + htmlEsc(detailCurrentPart) + ' 的 BOM…</div>';
+  title.textContent = detailCurrentPart;
+
   const apiParams = new URLSearchParams({
     site: detailCurrentSite,
     part: detailCurrentPart,
@@ -661,125 +687,123 @@ async function loadBomDetail() {
   const data = await res.json();
   detailData = data;
   if (!res.ok) {
-    detail.querySelector('.mrp-detail-body').innerHTML =
-      '<div class="empty-row">' + htmlEsc(data.error || 'BOM 查询失败') + '</div>';
+    content.innerHTML = '<div class="empty-row">' + htmlEsc(data.error || 'BOM 查询失败') + '</div>';
     return;
   }
   detailTotal = Number(data.total || 0);
-  detailTotalPages = Math.max(1, detailTotal / detailPageSize);
   renderBomDetail();
 }
 
 function renderBomDetail() {
-  const detail = document.getElementById('mrpDetail');
+  const pathEl = document.getElementById('bomModalPath');
+  const meta = document.getElementById('bomModalMeta');
+  const title = document.getElementById('bomModalTitle');
+  const content = document.getElementById('bomModalContent');
+  const pager = document.getElementById('bomModalPager');
+
+  // 标题 + 父件名
+  title.textContent = detailCurrentPart + (detailData && detailData.parent && detailData.parent.name ? '  ·  ' + detailData.parent.name : '');
+
+  // 面包屑 (递归路径)
   const pathParts = [...detailTrail, detailCurrentPart];
-  const head = document.createElement('div');
-  head.className = 'mrp-detail-head';
-  head.innerHTML =
-    '<div class="mrp-detail-title">BOM 第 ' + (pathParts.length) + ' 层 · ' + htmlEsc(detailCurrentPart) +
-    (detailData?.parent?.name ? ' · ' + htmlEsc(detailData.parent.name) : '') + '</div>' +
-    '<button class="mrp-detail-back" id="mrpDetailClose">关闭</button>';
-  detail.querySelector('.mrp-detail-head').replaceWith(head);
-
-  const body = document.createElement('div');
-  body.className = 'mrp-detail-body';
-
-  // 面包屑
-  if (detailTrail.length > 0) {
-    const crumb = document.createElement('div');
-    crumb.className = 'bom-path';
-    crumb.innerHTML = detailTrail.map((node, idx) =>
-      '<button class="bom-node bom-crumb-detail" data-index="' + idx + '">' + htmlEsc(node) + '</button>'
-    ).join('<span>›</span>') + '<span>›</span>' +
-      '<button class="bom-node bom-crumb-detail current">' + htmlEsc(detailCurrentPart) + '</button>';
-    body.appendChild(crumb);
+  if (pathParts.length > 1) {
+    pathEl.innerHTML = pathParts.map((node, idx) => {
+      const isLast = idx === pathParts.length - 1;
+      const cls = isLast ? 'bom-node current' : 'bom-node bom-crumb-modal';
+      return '<button class="' + cls + '" data-index="' + idx + '">' + htmlEsc(node) + '</button>' +
+             (isLast ? '' : '<span style="color:#475569">›</span>');
+    }).join('');
+    pathEl.style.display = 'flex';
+  } else {
+    pathEl.innerHTML = '<span style="color:#64748b">顶层 BOM</span>';
+    pathEl.style.display = 'flex';
   }
 
   // 元信息
-  const meta = document.createElement('div');
-  meta.style.cssText = 'font-size:11px;color:#94a3b8;margin:6px 0 10px;line-height:1.6';
+  const totalPages = Math.max(1, Math.ceil(detailTotal / detailPageSize));
   meta.innerHTML =
     '基地 <b style="color:#e2e8f0">' + htmlEsc(detailCurrentSite) + '</b> · ' +
-    '直接子件 <b style="color:#e2e8f0">' + detailTotal.toLocaleString() + '</b> 项 · ' +
-    '快照 <b style="color:#e2e8f0">' + (detailData?.snapshot_at ? new Date(detailData.snapshot_at).toLocaleString('zh-CN') : '-') + '</b>';
-  body.appendChild(meta);
+    '层级 <b style="color:#e2e8f0">第 ' + pathParts.length + ' 层</b> · ' +
+    '直接子件 <b style="color:#e2e8f0">' + detailTotal.toLocaleString() + '</b> 项 (共 ' + totalPages + ' 页) · ' +
+    '快照 <b style="color:#e2e8f0">' + (detailData && detailData.snapshot_at ? new Date(detailData.snapshot_at).toLocaleString('zh-CN') : '-') + '</b>';
 
   // 子件表格
-  const tableWrap = document.createElement('div');
   if (!detailData.rows || detailData.rows.length === 0) {
-    tableWrap.innerHTML = '<div class="empty-row">该物料没有下阶 BOM</div>';
+    content.innerHTML = '<div class="empty-row" style="padding:40px">该物料没有下阶 BOM (叶子物料)</div>';
   } else {
-    let rowsHtml = '<table><thead><tr><th>项次</th><th>子件料号</th><th>名称 / 规格</th><th>组成用量</th><th>单位</th><th>主件/子件类别</th><th>操作</th></tr></thead><tbody>';
+    let rowsHtml = '<table><thead><tr>' +
+      '<th style="width:50px">项次</th><th>子件料号</th><th>名称 / 规格</th><th style="width:90px">组成用量</th><th style="width:60px">单位</th><th style="width:120px">主件/子件</th><th style="width:100px">操作</th>' +
+      '</tr></thead><tbody>';
     detailData.rows.forEach(x => {
-      rowsHtml += '<tr><td>' + htmlEsc(x.seq || '-') + '</td>' +
-        '<td><code class="bom-link-detail ' + (x.has_children ? 'drillable' : 'leaf') + '" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(x.sub_part) + '">' + htmlEsc(x.sub_part) + '</code></td>' +
-        '<td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
+      const subCode = x.sub_part || '';
+      const hasChild = !!x.has_children;
+      rowsHtml += '<tr>' +
+        '<td>' + htmlEsc(x.seq || '-') + '</td>' +
+        '<td><code class="bom-link-detail ' + (hasChild ? '' : 'leaf') + '" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(subCode) + '" title="' + (hasChild ? '点击展开下一层' : '叶子物料,无下阶') + '">' + htmlEsc(subCode) + '</code></td>' +
+        '<td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b;font-size:10px">' + htmlEsc(x.spec || '') + '</span></td>' +
         '<td>' + fmtQty(x.qty) + '</td>' +
         '<td>' + htmlEsc(x.issue_uom || '') + '</td>' +
         '<td>' + htmlEsc(x.main_type || '') + ' / ' + htmlEsc(x.sub_type || '') + '</td>' +
-        '<td>' + (x.has_children ? '<button class="bom-open-detail" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(x.sub_part) + '">展开下一级</button>' : '<span class="leaf">叶子</span>') + '</td></tr>';
+        '<td>' + (hasChild ? '<button class="bom-open-detail" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(subCode) + '">↳ 展开下一级</button>' : '<span style="color:#64748b;font-size:10px">叶子</span>') + '</td>' +
+        '</tr>';
     });
     rowsHtml += '</tbody></table>';
-    tableWrap.innerHTML = rowsHtml;
+    content.innerHTML = rowsHtml;
   }
-  body.appendChild(tableWrap);
 
   // 分页
-  if (detailTotalPages > 1) {
-    const pager = document.createElement('div');
-    pager.className = 'pagination';
-    pager.style.cssText = 'margin-top:10px;text-align:right';
+  if (totalPages > 1) {
     pager.innerHTML =
       '<button data-page="1" class="bom-page-btn" ' + (detailPage === 1 ? 'disabled' : '') + '>« 首页</button>' +
       '<button data-page="' + (detailPage - 1) + '" class="bom-page-btn" ' + (detailPage === 1 ? 'disabled' : '') + '>‹ 上一页</button>' +
-      '<span style="margin:0 8px">第 ' + detailPage + ' / ' + Math.max(1, Math.ceil(detailTotal / detailPageSize)) + ' 页</span>' +
-      '<button data-page="' + (detailPage + 1) + '" class="bom-page-btn" ' + (detailPage >= Math.ceil(detailTotal / detailPageSize) ? 'disabled' : '') + '>下一页 ›</button>' +
-      '<button data-page="' + Math.ceil(detailTotal / detailPageSize) + '" class="bom-page-btn" ' + (detailPage >= Math.ceil(detailTotal / detailPageSize) ? 'disabled' : '') + '>末页 »</button>';
-    body.appendChild(pager);
+      '<span style="margin:0 8px">第 ' + detailPage + ' / ' + totalPages + ' 页</span>' +
+      '<button data-page="' + (detailPage + 1) + '" class="bom-page-btn" ' + (detailPage >= totalPages ? 'disabled' : '') + '>下一页 ›</button>' +
+      '<button data-page="' + totalPages + '" class="bom-page-btn" ' + (detailPage >= totalPages ? 'disabled' : '') + '>末页 »</button>';
+    pager.style.display = 'block';
+  } else {
+    pager.innerHTML = '';
+    pager.style.display = 'none';
   }
 
-  detail.querySelector('.mrp-detail-body').replaceWith(body);
   bindDetailEvents();
 }
 
 function bindDetailEvents() {
-  // 关闭按钮
-  const closeBtn = document.getElementById('mrpDetailClose');
-  if (closeBtn) closeBtn.addEventListener('click', () => {
-    detailCurrentSite = '';
-    detailCurrentPart = '';
-    detailTrail = [];
-    loadBomDetail();
-  });
-  // 面包屑回退
-  document.querySelectorAll('.bom-crumb-detail').forEach(c => {
-    if (c.classList.contains('current')) return;
-    c.addEventListener('click', () => {
+  // 关闭 modal
+  const closeBtn = document.getElementById('bomModalClose');
+  if (closeBtn) closeBtn.onclick = closeBomModal;
+  // 点击遮罩关闭
+  const mask = document.querySelector('.bom-modal-mask');
+  if (mask) mask.onclick = closeBomModal;
+  // 面包屑点击回退
+  document.querySelectorAll('.bom-crumb-modal').forEach(c => {
+    c.onclick = () => {
       const idx = Number(c.dataset.index);
       detailTrail = detailTrail.slice(0, idx);
       detailCurrentPart = detailTrail.pop() || detailCurrentPart;
       detailTrail = detailTrail.slice(0, idx);
       detailPage = 1;
       loadBomDetail();
-    });
+    };
   });
-  // 子件料号双击/点击 → 钻取下一层
+  // 子件料号单击 → 钻取下一层
   document.querySelectorAll('.bom-link-detail').forEach(c => {
     if (c.classList.contains('leaf')) return;
-    c.addEventListener('dblclick', () => drillDown(c.dataset.site, c.dataset.part));
+    c.onclick = (e) => { e.stopPropagation(); drillDown(c.dataset.site, c.dataset.part); };
   });
+  // 展开按钮
   document.querySelectorAll('.bom-open-detail').forEach(b => {
-    b.addEventListener('click', () => drillDown(b.dataset.site, b.dataset.part));
+    b.onclick = (e) => { e.stopPropagation(); drillDown(b.dataset.site, b.dataset.part); };
   });
   // 分页按钮
   document.querySelectorAll('.bom-page-btn').forEach(b => {
-    b.addEventListener('click', () => {
+    b.onclick = () => {
       const p = Number(b.dataset.page);
-      if (p >= 1 && p <= Math.ceil(detailTotal / detailPageSize)) {
+      if (p >= 1 && p <= Math.max(1, Math.ceil(detailTotal / detailPageSize))) {
         detailPage = p;
         loadBomDetail();
       }
-    });
+    };
   });
 }
 
@@ -1118,6 +1142,23 @@ setInterval(loadSyncMonitor, 3000);
 setInterval(loadSyncJob, 2000);
 setInterval(loadDashboard, 10000);
 </script>
+<!-- BOM 钻取弹窗 (浮层 modal) -->
+<div id="bomModal" class="bom-modal" style="display:none">
+  <div class="bom-modal-mask"></div>
+  <div class="bom-modal-body">
+    <div class="bom-modal-head">
+      <div>
+        <div class="eyebrow">BOM 钻取 / LEVEL DRILLDOWN</div>
+        <div id="bomModalTitle" class="bom-modal-title">BOM 结构</div>
+        <div id="bomModalMeta" class="bom-modal-meta"></div>
+      </div>
+      <button id="bomModalClose" class="bom-modal-close">×</button>
+    </div>
+    <div id="bomModalPath" class="bom-modal-path"></div>
+    <div id="bomModalContent" class="bom-modal-content">加载中...</div>
+    <div id="bomModalPager" class="bom-modal-pager"></div>
+  </div>
+</div>
 </body>
 </html>`;
 }
