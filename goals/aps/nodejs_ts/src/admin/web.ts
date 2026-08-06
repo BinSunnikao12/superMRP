@@ -223,9 +223,9 @@ function renderAdmin(): string {
   .formula-value{cursor:help;text-decoration:underline dotted rgba(251,191,36,.45);text-underline-offset:3px}.formula-tooltip{display:none;position:fixed;z-index:1000;max-width:420px;padding:11px 13px;border:1px solid #f59e0b;border-radius:4px;background:#080d13;color:#dbeafe;box-shadow:0 12px 36px rgba(0,0,0,.55);white-space:pre-line;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}.formula-tooltip.visible{display:block}
   .bom-link{cursor:zoom-in;border-bottom:1px dashed #f59e0b}.bom-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.bom-title{font-size:22px;font-weight:800;color:#f8fafc}.bom-sub{margin-top:5px;color:#64748b;font-size:11px}.bom-path{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0;color:#94a3b8}.bom-node{padding:3px 8px;border:1px solid #334155;background:#0f172a;color:#fbbf24;border-radius:3px}.drillable{color:#fbbf24}.leaf{color:#64748b}.bom-actions{display:flex;gap:7px;align-items:center}
   .mrp-filters{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 10px}.mrp-filters input{min-width:220px}.sort-btn{background:#17202b;border:1px solid #475569}.sort-btn.active{background:#0f766e;border-color:#14b8a6}.bom-count{color:#fbbf24;font-weight:750}
-  /* ===== 两栏工作区: 左解释 / 右表格+BOM ===== */
-  .mrp-workspace{display:grid;grid-template-columns:minmax(340px,0.4fr) minmax(0,1fr);gap:12px;align-items:start}
-  .mrp-explain{position:sticky;top:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:14px;max-height:calc(100vh - 24px);overflow:auto}
+  /* ===== 两栏工作区: 左解释窄 / 右表格宽 ===== */
+  .mrp-workspace{display:grid;grid-template-columns:320px minmax(0,1fr);gap:10px;align-items:start;height:calc(100vh - 110px)}
+  .mrp-explain{position:sticky;top:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:10px;max-height:calc(100vh - 130px);overflow:auto;font-size:11px}
   .mrp-explain-head{padding-bottom:8px;border-bottom:1px solid #263442;margin-bottom:10px}
   .mrp-list{min-width:0;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);overflow:hidden}
   .mrp-detail-card{padding:14px}
@@ -305,21 +305,64 @@ function renderAdmin(): string {
 
 <!-- Panel: MRP Workbench -->
 <div id="panel-workbench" class="panel active">
-  <div class="workbench-hero">
-    <section class="command-card"><div class="eyebrow">Planning cycle / data command</div><h2>从源数据到净需求，一屏完成</h2><p>先选择样本或全量同步，再用当前 MySQL 快照生成净需求预览。同步不包含 raw_base；正式多级 BOM 计算将在下一阶段接入。</p><div class="command-actions"><button class="action-btn primary" id="syncSample">拉取每表 1000 条</button><button class="action-btn" id="syncFull">全量拉取其他模块</button><button class="action-btn compute" id="calcPreview">计算净需求预览</button><span class="action-note">五基地 · 失败保留旧快照 · 禁止并发</span></div></section>
-    <aside class="shift-card"><div class="shift-label">CURRENT PLANNING RUN</div><div id="jobStatus" class="shift-status">等待指令</div><div class="shift-line"></div><div class="shift-meta"><div><b id="jobSite">—</b><span>当前基地</span></div><div><b id="jobRows">0</b><span>当前接口行数</span></div></div><div id="jobTerminal" class="run-terminal">系统就绪，等待同步任务。</div></aside>
-  </div>
-  <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
   <div class="mrp-workspace">
-    <!-- 左栏: 公式解释 + 术语表（粘性, 可滚动） -->
+    <!-- ============ 左栏: 全部控制 + 解释 + 工具 ============ -->
     <aside class="mrp-explain" id="mrpExplain">
-      <div class="mrp-explain-head">
-        <div class="mrp-detail-title">核心运算逻辑 / 计算依赖</div>
-        <div style="font-size:10px;color:#64748b;margin-top:3px">悬停单元格看公式 · 点击料号看 BOM</div>
-      </div>
       <div class="mrp-explain-body">
-        <!-- 流程图 -->
+        <!-- 1) 控制台: 同步 + 计算 + 站点状态 -->
         <div class="explain-block">
+          <h4 class="explain-h4">操作面板 / Command</h4>
+          <div class="command-card" style="padding:12px;margin-bottom:8px">
+            <div class="eyebrow" style="font-size:9px">PLANNING CYCLE</div>
+            <div style="font-size:14px;font-weight:700;color:#f8fafc;margin:4px 0 8px">从源数据到净需求,一屏完成</div>
+            <div class="command-actions" style="margin-top:0">
+              <button class="action-btn primary" id="syncSample" style="font-size:11px;padding:6px 10px">拉取每表 1000 条</button>
+              <button class="action-btn" id="syncFull" style="font-size:11px;padding:6px 10px">全量其他</button>
+              <button class="action-btn compute" id="calcPreview" style="font-size:11px;padding:6px 10px">计算净需求</button>
+            </div>
+          </div>
+          <div class="shift-card" style="padding:10px;font-size:11px">
+            <div class="shift-label">PLANNING RUN</div>
+            <div id="jobStatus" class="shift-status" style="font-size:13px;margin:4px 0">等待指令</div>
+            <div class="shift-meta">
+              <div><b id="jobSite">—</b><span>当前基地</span></div>
+              <div><b id="jobRows">0</b><span>当前接口行数</span></div>
+            </div>
+            <div id="jobTerminal" class="run-terminal" style="height:50px">系统就绪,等待同步任务。</div>
+          </div>
+        </div>
+
+        <!-- 2) 筛选条件 + 指标 (用户原话"都放左边") -->
+        <div class="explain-block">
+          <h4 class="explain-h4">筛选 / 指标</h4>
+          <div class="mrp-filters" style="margin:0 0 8px">
+            <input id="mrpKeyword" placeholder="搜索料号、名称或规格" style="width:100%"/>
+          </div>
+          <div class="mrp-filters" style="margin:0 0 8px;display:grid;grid-template-columns:1fr 1fr;gap:5px">
+            <select id="mrpSite" style="width:100%"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select>
+            <select id="mrpPageSize" style="width:100%"><option>20</option><option selected>50</option><option>100</option></select>
+          </div>
+          <div class="mrp-filters" style="margin:0 0 8px;display:grid;grid-template-columns:1fr 1fr;gap:5px">
+            <select id="mrpBomFilter" style="width:100%"><option value="all">全部 BOM</option><option value="hasBom">仅有下阶</option><option value="noBom">仅无下阶</option></select>
+            <select id="mrpShortageFilter" style="width:100%"><option value="all">全部需求</option><option value="shortage">仅缺料</option><option value="covered">仅不缺</option></select>
+          </div>
+          <div class="mrp-filters" style="margin:0 0 8px">
+            <button id="mrpSearch" style="width:48%">筛选</button><button id="mrpReset" style="width:48%;background:#475569">重置</button>
+          </div>
+          <div id="previewMetrics" class="preview-metrics" style="grid-template-columns:1fr 1fr;gap:5px"></div>
+          <div id="previewFreshness" class="freshness" style="font-size:9px;margin-top:4px"><span>尚未计算</span></div>
+          <div class="mrp-filters" style="margin-top:8px;flex-wrap:wrap">
+            <span style="color:#64748b;font-size:10px;width:100%;margin-bottom:3px">排序:</span>
+            <button class="sort-btn active" data-sort="net_desc" style="font-size:10px;padding:3px 6px">净需求↓</button>
+            <button class="sort-btn" data-sort="gross_desc" style="font-size:10px;padding:3px 6px">毛需求↓</button>
+            <button class="sort-btn" data-sort="bom_desc" style="font-size:10px;padding:3px 6px">下阶数↓</button>
+            <button class="sort-btn" data-sort="part_asc" style="font-size:10px;padding:3px 6px">料号↑</button>
+          </div>
+        </div>
+
+        <!-- 3) 流程图 -->
+        <div class="explain-block">
+          <h4 class="explain-h4">计算流程</h4>
           <div class="explain-step" data-tip="毛需求 = 需求量 × QPA(QPA 分子/QPA 分母)">① 毛需求</div>
           <div class="explain-arrow">↓ 扣库存 → 扣在制 → 扣 GD01</div>
           <div class="explain-step highlight" data-tip="净需求 = max(0, 毛需求 − 可用库存 − 可用在制 − GD01可用工单数)">② 净需求</div>
@@ -332,40 +375,50 @@ function renderAdmin(): string {
           </div>
         </div>
 
-        <!-- 5 个关键公式 -->
+        <!-- 4) 公式汇总 -->
         <div class="explain-block">
-          <h4 class="explain-h4">关键公式</h4>
-          <div class="formula-row" data-tip="<b>公式</b>: 毛需求 = 需求数量 × QPA\n<b>来源</b>: 父件需求 × BOM 用量\n<b>示例</b>: 100 件 × QPA=2 → 200"><b>1. 毛需求</b>=需求量 × QPA</div>
-          <div class="formula-row" data-tip="<b>公式</b>: 净需求 = max(0, 毛需求 − 可用库存 − 可用在制 − GD01)\n<b>扣减顺序</b>: 库存 → 在制 → GD01 (消耗性)\n<b>示例</b>: 200 − 50 − 30 − 0 = 120"><b>2. 净需求</b>=毛需求−库存−在制−GD01</div>
-          <div class="formula-row" data-tip="<b>公式</b>: 最终净需求 = ceil(净需求 × (1+损耗率/100) / 批量) × 批量\n<b>示例</b>: 100 × 1.05 / 1 × 1 = 105 (向上取整)"><b>3. 取整</b>=ceil(净需×(1+损耗)/批量)×批量</div>
-          <div class="formula-row" data-tip="<b>公式</b>: 预计开工 = 预计完工 − 前置时间\n<b>前置</b>=MySQL配置 → 否则固定+变动+QC+累计\n<b>特例</b>: LG 喷塑车间+1天; 虚拟件=0"><b>4. 倒推</b>开工=完工−前置</div>
-          <div class="formula-row" data-tip="<b>公式</b>: 齐套数 = min(子件库存/子件BOM用量), 初始=∞\n<b>含义</b>: 当前库存能凑齐多少整套\n<b>示例</b>: B1=100, B2=50/2=25, B3=60/3=20 → 齐套=min=20"><b>5. 齐套</b>=min(库存/用量)</div>
+          <h4 class="explain-h4">关键公式 (8 大计算)</h4>
+          <div class="formula-row" data-tip="<b>公式</b>: 毛需求 = 需求数量 × QPA\n<b>示例</b>: 100 × QPA=2 → 200"><b>① 毛需求</b>=需求量 × QPA</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 净需求 = max(0, 毛需求 − 可用库存 − 可用在制 − GD01)\n<b>扣减顺序</b>: 库存 → 在制 → GD01 (消耗性)\n<b>示例</b>: 200 − 50 − 30 − 0 = 120"><b>② 净需求</b>=毛需求−库存−在制−GD01</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 最终净需求 = ceil(净需求 × (1+损耗率/100) / 批量) × 批量\n<b>示例</b>: 100 × 1.05 / 1 × 1 = 105"><b>③ 取整</b>=ceil(净需×(1+损耗)/批量)×批量</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 预计开工 = 预计完工 − 前置时间\n<b>前置</b>=MySQL配置 → 否则固定+变动+QC+累计\n<b>特例</b>: LG 喷塑车间+1天; 虚拟件=0"><b>④ 倒推</b>开工=完工−前置</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 齐套数 = min(子件库存/子件BOM用量), 初始=∞\n<b>含义</b>: 当前库存能凑齐多少整套\n<b>示例</b>: B1=100, B2=50/2=25, B3=60/3=20 → 齐套=20"><b>⑤ 齐套</b>=min(库存/用量)</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 合计欠料[料号] = Σ 该料号各条需求的净需求\n<b>来源</b>: compute.remain_operation() 中 self.total_demand 累加"><b>⑥ 欠料合计</b>=Σ 净需求</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 人工工时 = IMAE051 (单位标准工时) × 净需求\n<b>注意</b>: 乘的是净需求,不是毛需求"><b>⑦ 人工工时</b>=IMAE051 × 净需求</div>
+          <div class="formula-row" data-tip="<b>公式</b>: 工单供给(按日期先到先得)\n  若 zgd[料号] > 净需求: 工单供给 = 净需求, zgd -= 净需求\n  否则: 工单供给 = zgd, zgd = 0\n<b>来源</b>: excel.py 第 351-357 行"><b>⑧ 工单供给</b>= min(zgd, 净需求)</div>
         </div>
 
-        <!-- 术语表 -->
+        <!-- 5) 库存扣减 3 仓库 -->
         <div class="explain-block">
-          <h4 class="explain-h4">术语速查</h4>
+          <h4 class="explain-h4">库存扣减顺序 (消耗性)</h4>
+          <div class="formula-row" data-tip="<b>① 库存</b> raw_remain: 仓库现存可用量,扣减时逐条递减"><b>① 可用库存</b>=Σ(raw_remain.qty)</div>
+          <div class="formula-row" data-tip="<b>② 在制</b> raw_cj: 已开工未完工的半成品数量,只在库存扣完后扣"><b>② 可用在制</b>=Σ(raw_cj.qty)</div>
+          <div class="formula-row" data-tip="<b>③ GD01</b> raw_special_supply: GD01/GD04/GD30/GD16 特殊工单可供给量"><b>③ 特殊供给</b>=Σ(raw_special_supply.qty)</div>
+        </div>
+
+        <!-- 6) 术语表 -->
+        <div class="explain-block">
+          <h4 class="explain-h4">术语速查 (10 核心)</h4>
           <div class="glossary">
-            <div class="glossary-row" data-tip="<b>毛需求</b> Gross Requirement: 未扣库存的原始需求量"><b>毛需求</b><span>=需求×QPA</span></div>
+            <div class="glossary-row" data-tip="<b>毛需求</b> Gross Requirement: 未扣库存的原始需求量 = 需求 × QPA"><b>毛需求</b><span>=需求×QPA</span></div>
             <div class="glossary-row" data-tip="<b>净需求</b> Net Requirement: 扣完库存/在制/工单供给后仍需生产的量"><b>净需求</b><span>扣减后</span></div>
-            <div class="glossary-row" data-tip="<b>QPA</b> Quantity Per Assembly: BOM 单位用量 (分子/分母)"><b>QPA</b><span>单位用量</span></div>
+            <div class="glossary-row" data-tip="<b>QPA</b> Quantity Per Assembly: BOM 单位用量,以分子/分母存储"><b>QPA</b><span>单位用量</span></div>
             <div class="glossary-row" data-tip="<b>前置时间</b> Lead Time: 从开工到完工所需天数"><b>前置时间</b><span>天数</span></div>
             <div class="glossary-row" data-tip="<b>齐套数</b> Kit Qty: 当前库存能完整配套的最大套数"><b>齐套数</b><span>配套数</span></div>
-            <div class="glossary-row" data-tip="<b>虚拟件</b> Phantom Item: 不入库的结构层,用量向下穿透相乘"><b>虚拟件</b><span>类别X</span></div>
+            <div class="glossary-row" data-tip="<b>虚拟件</b> Phantom Item (类别X): 不入库的结构层,用量向下穿透相乘"><b>虚拟件</b><span>类别X</span></div>
+            <div class="glossary-row" data-tip="<b>安全库存</b> Safety Stock: 需额外维持的库存,作为独立需求参与运算"><b>安全库存</b><span>独立需求</span></div>
+            <div class="glossary-row" data-tip="<b>齐套</b>=min(子件库存/子件BOM用量),初值=∞,逐层取min"><b>齐套</b><span>∞→min</span></div>
+            <div class="glossary-row" data-tip="<b>工单供给</b> Production Supply: 已有工单可满足该料号产能,按日期先到先得"><b>工单供给</b><span>先到先得</span></div>
+            <div class="glossary-row" data-tip="<b>合计欠料</b> Total Shortage: 同一料号跨所有需求行的净需求累加"><b>合计欠料</b><span>Σ 净需求</span></div>
           </div>
         </div>
       </div>
     </aside>
 
-    <!-- 右栏: 净需求表 + BOM 钻取(嵌在表下方) -->
+    <!-- ============ 右栏: 仅净需求表 + 分页 ============ -->
     <div class="mrp-list">
-      <div class="card mrp-toolbar-card">
-        <div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">服务端分页实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div>
-        <div class="mrp-filters"><input id="mrpKeyword" placeholder="搜索料号、名称或规格"/><select id="mrpBomFilter"><option value="all">全部 BOM 状态</option><option value="hasBom">仅有下阶物料</option><option value="noBom">仅无下阶物料</option></select><select id="mrpShortageFilter"><option value="all">全部需求状态</option><option value="shortage">仅净需求 &gt; 0</option><option value="covered">仅净需求 = 0</option></select><label>每页</label><select id="mrpPageSize"><option>20</option><option selected>50</option><option>100</option></select><button id="mrpSearch">筛选</button><button id="mrpReset">重置</button><span style="color:#64748b;font-size:11px">排序</span><button class="sort-btn active" data-sort="net_desc">净需求 ↓</button><button class="sort-btn" data-sort="gross_desc">毛需求 ↓</button><button class="sort-btn" data-sort="bom_desc">下阶数 ↓</button><button class="sort-btn" data-sort="part_asc">料号 ↑</button></div>
-        <div id="previewMetrics" class="preview-metrics"></div>
-        <div id="mrpResult" class="mrp-result"><div class="empty-row">同步数据后，点击"计算净需求预览"</div></div>
-        <div id="mrpPager" class="pagination"></div>
-      </div>
+      <div id="mrpResult" class="mrp-result" style="flex:1"><div class="empty-row">同步数据后，点击左侧"计算净需求"</div></div>
+      <div id="mrpPager" class="pagination"></div>
     </div>
   </div>
 </div>
@@ -575,7 +628,30 @@ async function loadMrpPreview(page = 1) {
     '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：Σ(每个物料的毛需求)\\n来源：raw_need.qty × qpa_num ÷ qpa_den\\n结果：' + fmtQty(s.gross_demand)) + '"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
     '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：Σ MAX(0, 毛需求 + 安全库存 - 库存 - 在制 - 特殊供给)\\n来源：raw_need、raw_safetystock、raw_remain、raw_cj、raw_special_supply\\n结果：' + fmtQty(s.net_demand)) + '"><span>净需求合计</span><b>' + fmtQty(s.net_demand) + '</b></div>' +
     '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：COUNT(净需求 > 0 的料号)\\n来源：全部物料净需求计算结果\\n结果：' + fmtQty(s.shortage_materials)) + '"><span>缺料物料数</span><b>' + fmtQty(s.shortage_materials) + '</b></div>';
-  const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验','下阶数','操作'];
+  // 12 列定义: { label, sortKey, sortable, align }
+  // 后端只支持 4 种 sort_key; 其它列点击触发对应 sort + 客户端 fallback
+  const columns = [
+    { label: '料号',     key: 'part_asc',    sort: 'part_asc' },
+    { label: '品名 / 规格', key: null,        sort: null },
+    { label: '毛需求',    key: 'gross_desc',  sort: 'gross_desc' },
+    { label: '安全库存',  key: null,          sort: 'part_asc' },  // fallback
+    { label: '可用库存',  key: null,          sort: 'part_asc' },
+    { label: '可用在制',  key: null,          sort: 'part_asc' },
+    { label: '特殊供给',  key: null,          sort: 'part_asc' },
+    { label: '净需求',    key: 'net_desc',    sort: 'net_desc' },
+    { label: '在途',      key: null,          sort: 'part_asc' },
+    { label: '在验',      key: null,          sort: 'part_asc' },
+    { label: '下阶数',    key: 'bom_desc',    sort: 'bom_desc' },
+    { label: '操作',      key: null,          sort: null },
+  ];
+  const currentSort = mrpCurrentSort;
+  const headHtml = columns.map((c, i) => {
+    if (!c.sort) return '<th>' + c.label + '</th>';
+    const active = currentSort === c.sort;
+    const arrow = active ? (c.sort.endsWith('desc') ? ' ↓' : ' ↑') : '';
+    const style = active ? 'style="color:#fde68a"' : '';
+    return '<th class="sortable-th" data-sort="' + c.sort + '" ' + style + ' style="cursor:pointer;user-select:none" title="点击按 ' + c.label + ' ' + (c.sort.endsWith('desc') ? '降序' : '升序') + '">' + c.label + '<span style="color:#f59e0b;font-size:10px;margin-left:3px">' + arrow + '</span></th>';
+  }).join('');
   const rows = data.rows.map(x => {
     const netFormula = 'MAX(0, ' + fmtQty(x.gross_demand) + ' + ' + fmtQty(x.safety_stock) + ' - ' + fmtQty(x.available_stock) + ' - ' + fmtQty(x.available_wip) + ' - ' + fmtQty(x.special_supply) + ')';
     return '<tr><td><code class="bom-link ' + (x.has_bom ? '' : 'leaf') + '" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '" title="' + (x.has_bom ? '双击查看 BOM' : '没有下阶 BOM') + '">' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
@@ -590,7 +666,7 @@ async function loadMrpPreview(page = 1) {
       '<td class="bom-count">' + Number(x.bom_count || 0).toLocaleString() + '</td>' +
       '<td>' + (x.has_bom ? '<button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '">查看 BOM (' + Number(x.bom_count || 0).toLocaleString() + ')</button>' : '<span class="leaf">无下阶</span>') + '</td></tr>';
   }).join('');
-  result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + (rows || '<tr><td colspan="12" class="empty-row">没有符合筛选条件的物料</td></tr>') + '</tbody></table>';
+  result.innerHTML = '<table><thead><tr>' + headHtml + '</tr></thead><tbody>' + (rows || '<tr><td colspan="12" class="empty-row">没有符合筛选条件的物料</td></tr>') + '</tbody></table>';
   const totalPages = Math.max(1, data.totalPages || 1);
   document.getElementById('mrpPager').innerHTML = '<button onclick="loadMrpPreview(1)" ' + (page === 1 ? 'disabled' : '') + '>« 首页</button><button onclick="loadMrpPreview(' + (page - 1) + ')" ' + (page === 1 ? 'disabled' : '') + '>‹ 上一页</button><span style="margin:0 8px">第 ' + page + ' / ' + totalPages + ' 页 · 共 ' + Number(data.total || 0).toLocaleString() + ' 条</span><button onclick="loadMrpPreview(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>下一页 ›</button><button onclick="loadMrpPreview(' + totalPages + ')" ' + (page >= totalPages ? 'disabled' : '') + '>末页 »</button>';
 }
@@ -875,6 +951,16 @@ document.getElementById('mrpReset').addEventListener('click', () => {
 document.querySelectorAll('.sort-btn').forEach(button => button.addEventListener('click', () => {
   mrpCurrentSort = button.dataset.sort; document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b === button)); loadMrpPreview(1);
 }));
+
+// 列头点击排序 (委托给 result 容器,避免每次重渲染都要重新绑定)
+document.getElementById('mrpResult').addEventListener('click', e => {
+  const th = e.target.closest && e.target.closest('.sortable-th');
+  if (!th || !th.dataset.sort) return;
+  mrpCurrentSort = th.dataset.sort;
+  // 同步更新左栏排序按钮的 active 状态
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === mrpCurrentSort));
+  loadMrpPreview(1);
+});
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '计算中';
