@@ -673,11 +673,13 @@ async function loadLog(page = 1) {
     return;
   }
   document.getElementById('log-list').innerHTML =
-    '<div class="query-table"><table><thead><tr><th>据点</th><th>接口</th><th>开始</th><th>耗时</th><th>页数</th><th>行数</th><th>状态</th><th>错误</th></tr></thead><tbody>' +
+    '<div class="query-table"><table><thead><tr><th>据点</th><th>接口</th><th>开始</th><th>耗时</th><th>页数</th><th>源端总数</th><th>实际拉取</th><th>MySQL 数量</th><th>数量校验</th><th>状态</th><th>错误</th></tr></thead><tbody>' +
     data.logs.map(l => {
       const dur = l.duration_ms ? (l.duration_ms/1000).toFixed(1) + 's' : '-';
       const cls = l.status === 'ok' ? 'badge-ok' : (l.status === 'failed' ? 'badge-fail' : 'badge-running');
-      return '<tr><td><code>' + esc(l.site) + '</code></td><td><code>' + esc(l.api_key) + '</code></td><td>' + new Date(l.started_at).toLocaleString('zh-CN') + '</td><td>' + dur + '</td><td style="text-align:right">' + Number(l.page_count || 0).toLocaleString() + '</td><td style="text-align:right">' + Number(l.total_rows || 0).toLocaleString() + '</td><td><span class="badge ' + cls + '">' + esc(l.status) + '</span></td><td class="truncate" title="' + esc(l.error || '') + '" style="color:#f87171">' + (l.error ? esc(l.error.slice(0, 120)) : '') + '</td></tr>';
+      const verifyOk = l.verification_status === 'verified' || l.verification_status === 'sample_verified';
+      const verifyLabel = l.verification_status === 'verified' ? '三方一致' : l.verification_status === 'sample_verified' ? '样本一致' : l.verification_status === 'failed' ? '校验失败' : '未校验';
+      return '<tr><td><code>' + esc(l.site) + '</code></td><td><code>' + esc(l.api_key) + '</code></td><td>' + new Date(l.started_at).toLocaleString('zh-CN') + '</td><td>' + dur + '</td><td style="text-align:right">' + Number(l.page_count || 0).toLocaleString() + '</td><td style="text-align:right">' + (l.source_rows == null ? '-' : Number(l.source_rows).toLocaleString()) + '</td><td style="text-align:right">' + Number(l.total_rows || 0).toLocaleString() + '</td><td style="text-align:right">' + (l.db_rows == null ? '-' : Number(l.db_rows).toLocaleString()) + '</td><td><span class="badge ' + (verifyOk ? 'badge-ok' : l.verification_status === 'failed' ? 'badge-fail' : 'badge-running') + '">' + verifyLabel + '</span></td><td><span class="badge ' + cls + '">' + esc(l.status) + '</span></td><td class="truncate" title="' + esc(l.error || '') + '" style="color:#f87171">' + (l.error ? esc(l.error.slice(0, 120)) : '') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
   const totalPages = Math.max(1, data.totalPages || 1);
   document.getElementById('logInfo').textContent = '第 ' + page + ' / ' + totalPages + ' 页 · 共 ' + Number(data.total || 0).toLocaleString() + ' 条';
@@ -1124,7 +1126,8 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
             const total = Number((countRows as any[])[0]?.c || 0);
             const offset = (page - 1) * pageSize;
             const [rows] = await conn.query(
-                `SELECT site, api_key, started_at, finished_at, duration_ms, page_count, total_rows, status, error
+                `SELECT site, api_key, started_at, finished_at, duration_ms, page_count, total_rows,
+                        source_rows, db_rows, verification_status, status, error
                  FROM pull_log${whereSql} ORDER BY id DESC LIMIT ${pageSize} OFFSET ${offset}`,
                 params,
             ) as any;

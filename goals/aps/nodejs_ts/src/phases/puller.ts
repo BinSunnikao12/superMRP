@@ -378,6 +378,10 @@ async function pullOne(site: string, apiKey: string, taskOverride?: keyof typeof
     let totalRows = 0;
     let pageCount = 0;
     let errMsg: string | undefined;
+    let sourceRows: number | null = null;
+    let dbRows: number | null = null;
+    let verificationStatus = 'pending';
+    let cleanupTransaction = false;
     let targetCols: Record<string, number> = {};
     try {
         // 0) 先查目标表的列（用于过滤无效字段）
@@ -482,14 +486,37 @@ async function pullOne(site: string, apiKey: string, taskOverride?: keyof typeof
             }
         }
 
-        const expectedRows = expectedTotal == null
-            ? null
-            : (rowLimit == null ? expectedTotal : Math.min(expectedTotal, rowLimit));
+        // 拉完后重新读取源端当时的总数，不能只相信第一页开始时的数量。
+        const verifyData = await runApi<any>(apiKey, {
+            site, page: 1, pageSize: 1, ...(task.params || {}),
+        });
+        const finalSourceTotal = Number(verifyData?.total);
+        if (!Number.isFinite(finalSourceTotal)) {
+            throw new Error('source total unavailable; cannot verify completeness');
+        }
+        if (rowLimit == null && expectedTotal != null && finalSourceTotal !== expectedTotal) {
+            throw new Error(`source total changed before final verification: ${expectedTotal} -> ${finalSourceTotal}`);
+        }
+        const expectedRows = rowLimit == null ? finalSourceTotal : Math.min(finalSourceTotal, rowLimit);
+        sourceRows = expectedRows;
         if (expectedRows != null && totalRows !== expectedRows) {
             throw new Error(`row count mismatch: expected ${expectedRows}, fetched ${totalRows}`);
         }
 
-        // 3) 新批次完整落库后，再原子地清理该接口范围内的旧批次。
+        const scopeSql = task.scope ? ` AND \`${task.scope.column}\` = ?` : '';
+        const scopeParams = task.scope ? [task.scope.value] : [];
+        const [stagedCountRows] = await conn.query(
+            `SELECT COUNT(*) c FROM ${task.targetTable} WHERE site=?${scopeSql} AND pulled_at=?`,
+            [site, ...scopeParams, startedAt],
+        ) as any;
+        const stagedRows = Number((stagedCountRows as any[])[0]?.c || 0);
+        if (stagedRows !== expectedRows) {
+            throw new Error(`staged database count mismatch: source ${expectedRows}, fetched ${totalRows}, staged ${stagedRows}`);
+        }
+
+        // 新批次、源端数量一致后，事务内替换旧快照并再次核对最终 MySQL 数量。
+        await conn.beginTransaction();
+        cleanupTransaction = true;
         if (task.scope) {
             await conn.execute(
                 `DELETE FROM ${task.targetTable} WHERE site = ? AND \`${task.scope.column}\` = ? AND pulled_at < ?`,
@@ -501,8 +528,25 @@ async function pullOne(site: string, apiKey: string, taskOverride?: keyof typeof
                 [site, startedAt],
             );
         }
+        const [finalCountRows] = await conn.query(
+            `SELECT COUNT(*) c FROM ${task.targetTable} WHERE site=?${scopeSql}`,
+            [site, ...scopeParams],
+        ) as any;
+        dbRows = Number((finalCountRows as any[])[0]?.c || 0);
+        if (dbRows !== expectedRows) {
+            throw new Error(`final database count mismatch: source ${expectedRows}, fetched ${totalRows}, mysql ${dbRows}`);
+        }
+        await conn.commit();
+        cleanupTransaction = false;
+        verificationStatus = rowLimit == null ? 'verified' : 'sample_verified';
+        console.log(`    [${apiKey}] VERIFIED source=${sourceRows} fetched=${totalRows} mysql=${dbRows}`);
     } catch (e) {
+        if (cleanupTransaction) {
+            try { await conn.rollback(); } catch { /* 保留原始错误 */ }
+            cleanupTransaction = false;
+        }
         errMsg = (e as Error).message;
+        verificationStatus = 'failed';
         console.error(`    [${apiKey}] FAILED: ${errMsg}`);
         // 本轮失败只撤销本轮已写数据，不破坏上一轮可用快照。
         try {
@@ -526,9 +570,11 @@ async function pullOne(site: string, apiKey: string, taskOverride?: keyof typeof
             try {
                 await conn.execute(
                     `UPDATE pull_log
-                     SET finished_at = ?, duration_ms = ?, page_count = ?, total_rows = ?, status = ?, error = ?
+                     SET finished_at = ?, duration_ms = ?, page_count = ?, total_rows = ?,
+                         source_rows = ?, db_rows = ?, verification_status = ?, status = ?, error = ?
                      WHERE id = ?`,
-                    [finishedAt, durationMs, pageCount, totalRows, errMsg ? 'failed' : 'ok', errMsg || null, logId],
+                    [finishedAt, durationMs, pageCount, totalRows, sourceRows, dbRows, verificationStatus,
+                        errMsg ? 'failed' : 'ok', errMsg || null, logId],
                 );
             } catch { /* swallow */ }
         }
@@ -596,6 +642,9 @@ async function ensureModuleSchema(): Promise<void> {
             KEY idx_part_no (part_no)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
         const additions: Array<[string, string, string]> = [
+            ['pull_log', 'source_rows', 'INT'],
+            ['pull_log', 'db_rows', 'INT'],
+            ['pull_log', 'verification_status', 'VARCHAR(24)'],
             ['raw_need', 'sfba006', 'VARCHAR(64)'],
             ['raw_need', 'qpa_num', 'DECIMAL(20,6)'],
             ['raw_need', 'qpa_den', 'DECIMAL(20,6)'],
