@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APS 系统代码分析报告</title>
+<style>
+  :root {
+    --bg: #f8f9fa;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --text-sec: #4a5568;
+    --text-muted: #718096;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --green: #059669;
+    --green-light: #d1fae5;
+    --orange: #d97706;
+    --orange-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --code-bg: #1e293b;
+    --code-text: #e2e8f0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: white;
+    padding: 48px 40px;
+    text-align: center;
+  }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .header .subtitle { font-size: 15px; opacity: 0.85; }
+  .header .meta { font-size: 13px; opacity: 0.7; margin-top: 12px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 32px;
+  }
+  .toc h2 { font-size: 16px; margin-bottom: 12px; color: var(--text-sec); }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin-bottom: 4px; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 14px; }
+  .toc a:hover { text-decoration: underline; }
+
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+  }
+  .section h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section h2 .num {
+    background: var(--accent);
+    color: white;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 20px 0 10px;
+    padding-left: 12px;
+    border-left: 4px solid var(--accent);
+  }
+  .section h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-sec);
+    margin: 14px 0 6px;
+  }
+  .section p { font-size: 14px; color: var(--text-sec); margin-bottom: 8px; }
+  .section ul, .section ol { padding-left: 20px; margin-bottom: 10px; }
+  .section li { font-size: 14px; color: var(--text-sec); margin-bottom: 4px; }
+
+  .info-box {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  .info-box.blue { background: var(--accent-light); border-left: 4px solid var(--accent); }
+  .info-box.green { background: var(--green-light); border-left: 4px solid var(--green); }
+  .info-box.orange { background: var(--orange-light); border-left: 4px solid var(--orange); }
+  .info-box.red { background: var(--red-light); border-left: 4px solid var(--red); }
+  .info-box.purple { background: var(--purple-light); border-left: 4px solid var(--purple); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th {
+    background: #f1f5f9;
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    color: var(--text);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    color: var(--text-sec);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  td code, p code, li code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: "Consolas", "Courier New", monospace;
+    color: var(--accent);
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .code-block .kw { color: #c792ea; }
+  .code-block .str { color: #c3e88d; }
+  .code-block .num { color: #f78c6c; }
+  .code-block .comment { color: #546e7a; font-style: italic; }
+  .code-block .fn { color: #82aaff; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .badge-core { background: var(--red-light); color: var(--red); }
+  .badge-data { background: var(--blue, var(--accent-light)); color: var(--accent); }
+  .badge-output { background: var(--green-light); color: var(--green); }
+  .badge-config { background: var(--purple-light); color: var(--purple); }
+  .badge-entry { background: var(--orange-light); color: var(--orange); }
+
+  .flow-diagram {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    text-align: center;
+  }
+  .flow-step {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 4px;
+  }
+  .flow-arrow {
+    display: inline-block;
+    color: var(--text-muted);
+    font-size: 18px;
+    margin: 0 2px;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .stat-card {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-card .num {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .formula {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin: 8px 0;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .formula .arrow { color: var(--accent); font-weight: bold; }
+
+  .footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>APS 高级排产系统 — 代码分析报告</h1>
+  <div class="subtitle">制造企业 MRP 物料需求计划 / 生产排程计算引擎</div>
+  <div class="meta">项目路径: C:\Users\Administrator\Downloads\aps &nbsp;|&nbsp; 分析日期: 2026-08-03</div>
+</div>
+
+<div class="container">
+
+<!-- TOC -->
+<div class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#s1">项目总览与架构</a></li>
+    <li><a href="#s2">代码文件清单与职责划分</a></li>
+    <li><a href="#s3">数据层详解 (data/)</a></li>
+    <li><a href="#s4">运算层详解 (compute/)</a></li>
+    <li><a href="#s5">输出层详解 (excel/)</a></li>
+    <li><a href="#s6">核心运算逻辑深度分析</a></li>
+    <li><a href="#s7">非运算部分分析</a></li>
+    <li><a href="#s8">数据流转全链路</a></li>
+    <li><a href="#s9">数据库连接与数据源</a></li>
+    <li><a href="#s10">多站点支持与配置差异</a></li>
+    <li><a href="#s11">风险与改进建议</a></li>
+  </ol>
+</div>
+
+<!-- Section 1 -->
+<div class="section" id="s1">
+  <h2><span class="num">1</span>项目总览与架构</h2>
+
+  <p>本项目是一个 <strong>APS (Advanced Planning and Scheduling) 高级排产系统</strong>，用于制造业企业的 MRP（物料需求计划）计算。系统从 Oracle ERP 数据库读取工单、BOM、库存等基础数据，经过 MRP 核心运算后，生成物料需求计划、采购需求明细、生产需求等结果，最终输出为 Excel 报表并同步写入 MySQL 数据库。</p>
+
+  <div class="info-box blue">
+    <strong>核心业务场景：</strong>乐歌股份（LocTek）多基地生产排程 — 支持乐歌(LG)、越南(YN)、曲阜(QU)、广西(GX)、奉化(FN) 五个生产基地，每个基地独立运行 MRP 计算。
+  </div>
+
+  <h3>系统架构图</h3>
+  <div class="flow-diagram">
+    <div class="flow-step" style="background:#fef3c7;color:#d97706;">main.py<br><small>入口</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#dbeafe;color:#2563eb;">data_oracle.py<br><small>ERP数据读取</small></div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step" style="background:#dbeafe;color:#2563eb;">data_mysql.py<br><small>配置/写入</small></div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step" style="background:#dbeafe;color:#2563eb;">data_mes.py<br><small>MES数据</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#fee2e2;color:#dc2626;">compute.py + methods.py<br><small>MRP核心运算</small></div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#d1fae5;color:#059669;">excel.py<br><small>报表输出</small></div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step" style="background:#d1fae5;color:#059669;">MySQL<br><small>结果入库</small></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="num">7</div><div class="label">Python 源文件</div></div>
+    <div class="stat-card"><div class="num">3</div><div class="label">数据库连接</div></div>
+    <div class="stat-card"><div class="num">5</div><div class="label">支持站点</div></div>
+    <div class="stat-card"><div class="num">8+</div><div class="label">Excel Sheet</div></div>
+  </div>
+</div>
+
+<!-- Section 2 -->
+<div class="section" id="s2">
+  <h2><span class="num">2</span>代码文件清单与职责划分</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:180px;">文件路径</th>
+        <th style="width:80px;">类型</th>
+        <th style="width:100px;">代码行数</th>
+        <th>核心职责</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>main.py</code></td>
+        <td><span class="badge badge-entry">入口</span></td>
+        <td>10</td>
+        <td>程序入口，调用 <code>excel.f("LG")</code> 触发指定站点的 MRP 计算</td>
+      </tr>
+      <tr>
+        <td><code>data/data_oracle.py</code></td>
+        <td><span class="badge badge-data">数据层</span></td>
+        <td>362</td>
+        <td>连接 Oracle ERP，读取 BOM、工单、库存、在制、在验、采购在途、工单供给、安全库存等全部基础数据</td>
+      </tr>
+      <tr>
+        <td><code>data/data_mysql.py</code></td>
+        <td><span class="badge badge-data">数据层</span></td>
+        <td>111</td>
+        <td>连接 MySQL MRP 库读取前置时间配置/假期；运算完成后将结果写入 mrp/cg_data/zj_data 三张表</td>
+      </tr>
+      <tr>
+        <td><code>data/data_mes.py</code></td>
+        <td><span class="badge badge-data">数据层</span></td>
+        <td>37</td>
+        <td>连接 MySQL lowcode 库读取跟单备注（采购回复/承诺交期）和采购人员交接映射</td>
+      </tr>
+      <tr>
+        <td><code>compute/compute.py</code></td>
+        <td><span class="badge badge-core">运算核心</span></td>
+        <td>291</td>
+        <td>MRP 核心引擎：<code>serve</code> 类，包含数据初始化、需求展开、库存扣减、前置时间计算、假期调整等全部运算逻辑</td>
+      </tr>
+      <tr>
+        <td><code>compute/methods.py</code></td>
+        <td><span class="badge badge-core">运算核心</span></td>
+        <td>80</td>
+        <td>运算辅助函数：需求分配算法 <code>demand()</code>、BOM 递归展开 <code>xxxx()</code>、BOM 结构比较 <code>compare_data()</code></td>
+      </tr>
+      <tr>
+        <td><code>excel/excel.py</code></td>
+        <td><span class="badge badge-output">输出层</span></td>
+        <td>436</td>
+        <td>结果展示与导出：生成多 Sheet Excel 报表（物料需求/库存/采购/生产/主计划等），中越双语表头，写入 MySQL，清理旧文件</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="info-box orange">
+    <strong>注意：</strong>项目中无 <code>__init__.py</code> 文件（仅有编译后的 <code>.pyc</code>），模块导入依赖于从项目根目录运行。曾在 Python 3.9 和 3.10 两个版本下编译运行。
+  </div>
+</div>
+
+<!-- Section 3 -->
+<div class="section" id="s3">
+  <h2><span class="num">3</span>数据层详解 (data/)</h2>
+
+  <h3>3.1 data_oracle.py — Oracle ERP 数据读取</h3>
+  <p>这是整个系统的<strong>最主要数据来源</strong>，通过 <code>cx_Oracle</code> 连接鼎捷 ERP（T100）数据库（<code>192.168.0.199:1521/topprd</code>），使用 <code>erp_reader</code> 只读账号。</p>
+
+  <table>
+    <thead>
+      <tr><th>方法名</th><th>数据用途</th><th>对应ERP表</th><th>返回格式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>bomfunc()</code></td><td>BOM 物料清单（主件→下阶展开）</td><td>BMBA_T / BMAA_T / IMAA_T</td><td>{主件料号: [子件列表]}</td></tr>
+      <tr><td><code>basefunc()</code></td><td>料号基础属性（补给策略/前置时间/损耗率/成本中心等）</td><td>IMAF_T / IMAE_T</td><td>{料号: 属性字典}</td></tr>
+      <tr><td><code>needfunc()</code></td><td>生产工单需求 + 销售订单需求</td><td>SFAA_T / SFBA_T + XMDA_T / XMDD_T</td><td>[需求字典列表]</td></tr>
+      <tr><td><code>remainfunc()</code></td><td>库存余量</td><td>INAG_T / INAA_T</td><td>{料号: 数量}</td></tr>
+      <tr><td><code>cjfunc()</code></td><td>在制数量（半成品）</td><td>SFAA_T / SFBA_T</td><td>{料号: 数量}</td></tr>
+      <tr><td><code>itemsfunc()</code></td><td>料号品名规格（中文）</td><td>IMAAL_T</td><td>{料号: {品名,规格}}</td></tr>
+      <tr><td><code>vn_itemsfunc()</code></td><td>料号品名规格（越南语）</td><td>IMAAL_T</td><td>{料号: {品名,规格}}</td></tr>
+      <tr><td><code>buyerfunc()</code></td><td>最近采购信息（供应商/采购员）</td><td>PMDN_T / PMDL_T / OOAG_T</td><td>{料号: 采购信息}</td></tr>
+      <tr><td><code>testfunc()</code></td><td>在验数量（检验中）</td><td>PMDT_T / PMDS_T</td><td>{料号: 在验量}</td></tr>
+      <tr><td><code>safetystock()</code></td><td>安全库存设定</td><td>IMAF_T</td><td>[{料号,安全量,单位}]</td></tr>
+      <tr><td><code>in_transit()</code></td><td>采购在途数量</td><td>PMDL_T / PMDO_T / PMDN_T</td><td>{料号: 在途量}</td></tr>
+      <tr><td><code>production_supply()</code></td><td>工单供给（可用产能）</td><td>SFAC_T / SFAA_T</td><td>{料号: 供给量}</td></tr>
+      <tr><td><code>substitute()</code></td><td>替代料关系</td><td>BMEA_T</td><td>{主件_下阶: [替代料]}</td></tr>
+      <tr><td><code>purchase_order_detail()</code></td><td>采购订单明细（含未审核请购）</td><td>PMDO_T / PMDL_T / PMDB_T</td><td>{料号: [订单明细]}</td></tr>
+      <tr><td><code>get_special_supply()</code></td><td>GD01/GD04/GD30/GD16 特殊工单供给</td><td>SFAA_T</td><td>{料号: 数量}</td></tr>
+      <tr><td><code>gd_bom()</code></td><td>工单级 BOM（用于替代标准BOM展开）</td><td>SFAA_T / SFBA_T</td><td>{料号: {BOM_JSON: 未交量}}</td></tr>
+      <tr><td><code>outsourcing_type()</code></td><td>外购类型/材质</td><td>IMAA_T / OOCQL_T</td><td>{料号: {类型,材质}}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box blue">
+    <strong>needfunc() 双数据源合并：</strong>该方法通过 <code>UNION ALL</code> 合并了两类需求来源 —— ① 生产工单（SFAA/SFBA，工单状态为已审核/已发出），② 销售订单（XMDA/XMDD，直接交货需求）。排除了特定工单类型（通过 PSCC 排除表过滤）。
+  </div>
+
+  <h3>3.2 data_mysql.py — MySQL 配置读取 + 结果写入</h3>
+
+  <h4>读取部分</h4>
+  <table>
+    <thead><tr><th>方法</th><th>用途</th><th>数据库/表</th></tr></thead>
+    <tbody>
+      <tr><td><code>leadtime_func()</code></td><td>读取前置时间配置（站点+成本中心编码 → 天数）</td><td>mrp / leadtime_conf</td></tr>
+      <tr><td><code>holiday_func(site)</code></td><td>读取指定站点的假期列表（起止日期）</td><td>mrp / holiday</td></tr>
+    </tbody>
+  </table>
+
+  <h4>写入部分 — mysql_load()</h4>
+  <p><code>mysql_load()</code> 是唯一的写入入口，负责将运算结果持久化到 MySQL MRP 库（<code>192.168.0.78</code>）：</p>
+  <table>
+    <thead><tr><th>目标表</th><th>写入内容</th><th>写入方式</th></tr></thead>
+    <tbody>
+      <tr><td><code>mrp</code></td><td>物料需求明细（全部展开的BOM层级数据，含60+字段）</td><td>批量 INSERT（每批1000条）</td></tr>
+      <tr><td><code>zj_data</code></td><td>生产需求数据（按成本中心/料号/日期聚合）</td><td>批量 INSERT</td></tr>
+      <tr><td><code>cg_data</code></td><td>采购需求明细（净需求匹配采购单后）</td><td>批量 INSERT</td></tr>
+      <tr><td><code>mrp_version</code></td><td>版本号记录</td><td>UPSERT（ON DUPLICATE KEY）</td></tr>
+    </tbody>
+  </table>
+  <div class="info-box green">
+    <strong>版本管理策略：</strong>mrp 表保留最近 3 个版本的数据（通过子查询 LIMIT 3），cg_data 和 zj_data 则只保留当前版本（删除所有旧版本）。
+  </div>
+
+  <h3>3.3 data_mes.py — MES 补充数据</h3>
+  <p>连接 MySQL lowcode 库（<code>10.19.204.8</code>），读取两类辅助数据：</p>
+  <table>
+    <thead><tr><th>方法</th><th>用途</th><th>表</th></tr></thead>
+    <tbody>
+      <tr><td><code>remark()</code></td><td>跟单码 → 采购回复/承诺交期备注</td><td>diy_Remarks</td></tr>
+      <tr><td><code>ryjj()</code></td><td>原采购员 → 新采购员（人员交接映射）</td><td>diy_handover + sys_user</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 4 -->
+<div class="section" id="s4">
+  <h2><span class="num">4</span>运算层详解 (compute/)</h2>
+
+  <h3>4.1 compute.py — MRP 核心引擎 (<code>serve</code> 类)</h3>
+
+  <h4>初始化 <code>__init__()</code></h4>
+  <p>构造函数中一次性加载所有数据（约 20 个数据源），并创建副本用于后续计算（<code>remain_dict_copy</code>、<code>cj_dict_copy</code>、<code>gd01_copy</code>），因为计算过程中库存会被逐条扣减，副本保留原始值用于报表展示。</p>
+
+  <h4>核心方法调用链</h4>
+  <div class="code-block">
+<span class="comment"># 外部调用入口</span>
+excel.f(site) <span class="arrow">→</span> compute.serve(site).calculate()
+
+<span class="comment"># calculate() 内部流程</span>
+calculate()
+  ├── 遍历 need（工单需求）
+  │     └── sss(v)                        <span class="comment"># 处理单条需求</span>
+  │           ├── sss() 内部
+  │           │     ├── remain_operation(v)   <span class="comment"># 库存扣减 + 净需求计算</span>
+  │           │     ├── 损耗率 + 批量取整
+  │           │     └── aaa(v)                <span class="comment"># BOM递归展开</span>
+  │           │           └── methods.xxxx()  <span class="comment"># 创建子件需求</span>
+  │           │                 └── remain_operation()  <span class="comment"># 递归扣减</span>
+  │           │                 └── aaa()             <span class="comment"># 继续展开下阶</span>
+  │           └── 追加到 self.l
+  │
+  ├── 遍历 safetystock（安全库存需求）
+  │     └── sss(v)  <span class="comment"># 同上</span>
+  │
+  ├── 计算"总装发出数量"（已发出工单的毛需求汇总）
+  │
+  └── 生成库存汇总 self.r（多余库存/多余在制等）
+  </div>
+
+  <h4>关键方法说明</h4>
+  <table>
+    <thead><tr><th style="width:160px;">方法</th><th>运算逻辑</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>calculate()</code></td>
+        <td>主入口。遍历工单需求列表，构造需求字典（含毛需求=BOM用量×需求数量），调用 <code>sss()</code> 处理。之后处理安全库存需求，最后汇总发出数量和库存报告。</td>
+      </tr>
+      <tr>
+        <td><code>sss(v)</code></td>
+        <td>单条需求处理。调用 <code>remain_operation()</code> 扣减库存→计算净需求→应用生产损耗率→批量取整→设置齐套数初始值(∞)→追加到结果列表→若非外购且有净需求则调用 <code>aaa()</code> 递归展开BOM。</td>
+      </tr>
+      <tr>
+        <td><code>remain_operation(v)</code></td>
+        <td><strong>核心库存扣减</strong>。按"可用库存→可用在制→GD01可用工单数"顺序扣减毛需求，剩余即为净需求。同时计算人工工时、设置各前置时间、计算预计开工日期（完工日期-前置时间），调用假期调整。</td>
+      </tr>
+      <tr>
+        <td><code>aaa(m)</code></td>
+        <td>BOM 递归展开。先检查工单级BOM（gd_bom_dict），与标准BOM对比后选择使用；然后调用 <code>methods.xxxx()</code> 展开子件并递归。</td>
+      </tr>
+      <tr>
+        <td><code>hoilday_func(v)</code></td>
+        <td>假期调整。如果工单的[预计开工日,预计完工日]区间与假期有重叠，将预计开工日向前推移假期天数，确保开工日落在非假期工作日。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 methods.py — 运算辅助函数</h3>
+  <table>
+    <thead><tr><th style="width:140px;">函数</th><th>运算逻辑</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>demand(warehouses, needs)</code></td>
+        <td>多仓库存扣减算法。按字典序遍历可用库存（库存→在制→GD01），逐个扣减直到需求满足或全部耗尽。返回 (净需求, 剩余库存)。</td>
+      </tr>
+      <tr>
+        <td><code>xxxx(bom, n, m, s)</code></td>
+        <td>BOM 展开核心。遍历 BOM 子件列表，为每个子件创建需求记录：计算毛需求=QPA×数量、递归调用 <code>remain_operation()</code> 扣减库存、计算齐套数（取子件可用库存/BOM用量的最小值）、若子件非外购且有净需求则递归调用 <code>aaa()</code> 继续展开。</td>
+      </tr>
+      <tr>
+        <td><code>compare_data(data1, data2)</code></td>
+        <td>BOM 结构比较。按[主件,下阶,QPA]排序后逐项比较，用于判断工单级BOM与标准BOM是否一致。</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 5 -->
+<div class="section" id="s5">
+  <h2><span class="num">5</span>输出层详解 (excel/)</h2>
+
+  <h3>excel.py — 报表生成与数据导出</h3>
+  <p><code>f(site)</code> 是唯一对外接口，串联运算→报表→入库的完整流程：</p>
+
+  <h4>生成的 Excel Sheet 列表</h4>
+  <table>
+    <thead><tr><th style="width:140px;">Sheet名</th><th style="width:60px;">位置</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>物料需求</td><td>第0页</td><td>全部BOM展开后的物料需求明细（主表，含60+字段）</td></tr>
+      <tr><td>库存情况</td><td>第1页</td><td>库存汇总：总库存/总在制/多余库存/安全库存/总需求/总采购在途等</td></tr>
+      <tr><td>采购需求-明细</td><td>第2页</td><td>外购物料净需求匹配采购订单后的明细（含供应商/采购单/交期）</td></tr>
+      <tr><td>销售备货</td><td>第3页</td><td>XS类销售订单的备货需求</td></tr>
+      <tr><td>生产需求</td><td>—</td><td>非外购物料的生产需求汇总（按成本中心/料号/日期分组）</td></tr>
+      <tr><td>各车间分表</td><td>—</td><td>按成本中心拆分（焊接/激光/喷塑/总装一~四/木工等），喷塑车间额外加"喷涂料名"列</td></tr>
+      <tr><td>主计划</td><td>—</td><td>工单主计划（预计开/完工日期、料号、需求数量、业务员、客户）</td></tr>
+    </tbody>
+  </table>
+
+  <h4>关键辅助函数</h4>
+  <table>
+    <thead><tr><th style="width:120px;">函数</th><th>功能</th></tr></thead>
+    <tbody>
+      <tr><td><code>allocate(i,q,f)</code></td><td>按日期+料号分配成本中心数量（递归扣减逻辑，当前被注释未使用）</td></tr>
+      <tr><td><code>writer_sheet()</code></td><td>通用 Sheet 写入器：第1行中文表头，第2行越南语表头，第3行起数据</td></tr>
+      <tr><td><code>djmy(d)</code></td><td>多角贸易判断：根据跟单码中的 XS07/XS09/XS79 标记发往越南/姜山/广西</td></tr>
+      <tr><td><code>format_float</code></td><td>数字格式化：有小数保留3位，无小数显示整数</td></tr>
+      <tr><td><code>vn_titles</code></td><td>中文→越南语表头翻译字典（108个字段）</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box purple">
+    <strong>采购需求匹配逻辑（excel.py 第218-262行）：</strong>遍历外购净需求，与 <code>purchase_order_detail_dict</code> 中的采购订单逐条匹配。若采购单可满足全部需求则一次性扣减；若不足则部分扣减后继续匹配下一条。QG34 开头的采购单在 LG 站点固定分配给"千银海"。
+  </div>
+</div>
+
+<!-- Section 6 -->
+<div class="section" id="s6">
+  <h2><span class="num">6</span>核心运算逻辑深度分析</h2>
+
+  <h3>6.1 毛需求计算</h3>
+  <div class="formula">
+    毛需求 = 主件需求数量 × (QPA分子 / QPA分母)<br>
+    <span style="color:var(--text-muted)">即：工单需求量 × BOM单位用量</span>
+  </div>
+  <p>在 <code>calculate()</code> 中构造需求字典时计算。子件展开时，毛需求 = 子件QPA × 父件净需求（<code>methods.xxxx()</code> 中 <code>jj["毛需求"] = jj["QPA"] * n</code>）。</p>
+
+  <h3>6.2 净需求计算 — 多级库存扣减</h3>
+  <div class="formula">
+    净需求 = max(0, 毛需求 - 可用库存 - 可用在制 - GD01可用工单数)
+  </div>
+  <p>核心在 <code>methods.demand()</code> 函数中实现，按固定顺序遍历三个"仓库"逐个扣减：</p>
+  <div class="code-block">
+<span class="kw">def</span> <span class="fn">demand</span>(warehouses, needs):
+    <span class="kw">for</span> warehouse, stock <span class="kw">in</span> warehouses.items():  <span class="comment"># 顺序: 可用库存 → 可用在制 → GD01</span>
+        <span class="kw">if</span> stock >= needs:
+            warehouses[warehouse] = stock - needs
+            needs = <span class="num">0</span>
+            <span class="kw">break</span>
+        <span class="kw">else</span>:
+            warehouses[warehouse] = <span class="num">0</span>
+            needs -= stock
+    <span class="kw">return</span> (max(<span class="num">0</span>, needs), warehouses)
+  </div>
+  <div class="info-box red">
+    <strong>关键设计：</strong>库存扣减是<strong>消耗性的</strong>——同一条料号在多条需求中，库存会被逐条递减（<code>remain_dict[item]</code> 在每次 <code>remain_operation()</code> 后更新），确保不会重复分配库存。
+  </div>
+
+  <h3>6.3 生产损耗率与批量取整</h3>
+  <div class="formula">
+    净需求(最终) = ceil(净需求 × (1 + 损耗率/100) / 生产批量) × 生产批量<br>
+    <span style="color:var(--text-muted)">向上取整到生产批量的整数倍（当前生产批量 IMAE017 固定为1）</span>
+  </div>
+  <p>在 <code>sss()</code> 和 <code>methods.xxxx()</code> 中均有此计算，确保生产数量满足批量要求和损耗补偿。</p>
+
+  <h3>6.4 前置时间与排程计算</h3>
+  <div class="formula">
+    预计开工日期 = 预计完工日期 - 前置时间<br><br>
+    前置时间 = MySQL配置值(leadtime_map[站点, 成本中心编码])<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;（或 = 固定生产前置 + 变动生产前置 + QC前置 + 累计前置，当无配置时使用ERP标准值）<br><br>
+    特殊规则：乐歌喷塑车间模块化标记物料 → 前置时间 +1 天<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;虚拟件(X类) → 前置时间 = 0
+  </div>
+
+  <h3>6.5 假期调整算法</h3>
+  <p><code>hoilday_func(v)</code> 在前置时间计算后执行：</p>
+  <div class="code-block">
+<span class="comment"># 1. 检查工单[预计开工日, 预计完工日]是否与假期区间重叠</span>
+<span class="kw">if</span> 开工日 <= 假期结束日 <span class="kw">and</span> 完工日 >= 假期开始日:
+    overlap = 假期
+
+<span class="comment"># 2. 计算需要前移的天数</span>
+重叠天数 = 假期结束日 - 完工日    <span class="comment"># 如果为负则取0</span>
+前移天数 = (假期结束日 - 假期开始日) - 重叠天数 + <span class="num">1</span>
+
+<span class="comment"># 3. 开工日向前推移</span>
+预计开工日期 = 预计开工日期 - 前移天数
+  </div>
+
+  <h3>6.6 BOM 递归展开算法</h3>
+  <p>这是 MRP 的核心递归逻辑，在 <code>aaa()</code> → <code>methods.xxxx()</code> → <code>aaa()</code> 中形成递归链：</p>
+  <div class="flow-diagram">
+    <div class="flow-step" style="background:#fee2e2;color:#dc2626;">成品工单需求</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#fef3c7;color:#d97706;">sss() 处理顶层</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#dbeafe;color:#2563eb;">aaa() 展开BOM</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#ede9fe;color:#7c3aed;">xxxx() 创建子件</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#d1fae5;color:#059669;">remain_operation() 扣库存</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step" style="background:#dbeafe;color:#2563eb;">aaa() 继续展开</div>
+    <span class="flow-arrow">&rarr; ...</span>
+  </div>
+
+  <p><strong>工单级 BOM 优先逻辑（gd_bom）：</strong></p>
+  <ul>
+    <li>先检查 <code>gd_bom_dict</code> 中是否有该料号的工单级 BOM</li>
+    <li>若有，用 <code>compare_data()</code> 比较工单级BOM与标准BOM是否一致</li>
+    <li>若不一致（说明该工单使用了修改后的BOM），优先使用工单级BOM展开</li>
+    <li>工单级BOM按未交量逐条消耗，消耗完后再使用标准BOM</li>
+    <li>虚拟件（主件类别="X"）的父跟单码取上一层的父跟单码，BOM用量=QPA×父件BOM用量</li>
+  </ul>
+
+  <h3>6.7 齐套数计算</h3>
+  <div class="formula">
+    齐套数 = min(子件使用库存 / 子件BOM用量)<br>
+    <span style="color:var(--text-muted)">初始值为无穷大(inf)，逐层递归取最小值</span>
+  </div>
+  <p>在 <code>methods.xxxx()</code> 中：如果父件齐套数 > 子件使用库存/BOM用量，则更新为子件值。最终齐套数表示该工单在当前库存下能配套生产的最大套数。</p>
+
+  <h3>6.8 工单供给分配</h3>
+  <p>在 <code>excel.py</code> 第351-357行，对生产需求按日期排序后分配工单供给：</p>
+  <div class="code-block">
+<span class="kw">for</span> index, row <span class="kw">in</span> grouped.iterrows():
+    <span class="kw">if</span> zgd[料号] > 净需求总和:
+        工单供给 = 净需求总和       <span class="comment"># 供给充足，全部满足</span>
+        zgd[料号] -= 净需求总和     <span class="comment"># 扣减可用供给</span>
+    <span class="kw">else</span>:
+        工单供给 = zgd[料号]        <span class="comment"># 供给不足，全部分配</span>
+        zgd[料号] = <span class="num">0</span>             <span class="comment"># 供给耗尽</span>
+  </div>
+  <p>供给量是消耗性的——按日期先后顺序分配，先到先得。</p>
+
+  <h3>6.9 合计欠料计算</h3>
+  <div class="formula">
+    合计欠料[料号] = 累计净需求（同料号多条需求累加）<br>
+    <span style="color:var(--text-muted)">在 remain_operation() 中: self.total_demand[item] += v["净需求"]</span>
+  </div>
+
+  <h3>6.10 人工工时计算</h3>
+  <div class="formula">
+    人工工时 = 标准人工工时(IMAE051) × 净需求<br>
+    子件标准人工工时 = base["IMAE051"]（子件料号的单位标准工时）<br>
+    主件标准人工工时 = main_base["IMAE051"]（主件料号的单位标准工时）
+  </div>
+</div>
+
+<!-- Section 7 -->
+<div class="section" id="s7">
+  <h2><span class="num">7</span>非运算部分分析</h2>
+
+  <p>以下部分属于数据获取、格式转换、输出展示等<strong>非运算逻辑</strong>，不涉及 MRP 核心计算：</p>
+
+  <h3>7.1 数据获取层（纯 I/O 读取）</h3>
+  <table>
+    <thead><tr><th style="width:200px;">模块/方法</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>data_oracle.py</code> 全部方法</td><td>17 个 SQL 查询方法，仅从 Oracle 读取数据并转为字典/列表格式，无任何计算</td></tr>
+      <tr><td><code>data_mysql.py</code> 读取部分</td><td><code>leadtime_func()</code> 和 <code>holiday_func()</code> 纯查询</td></tr>
+      <tr><td><code>data_mes.py</code> 全部</td><td><code>remark()</code> 和 <code>ryjj()</code> 纯查询</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.2 数据写入层（纯 I/O 写入）</h3>
+  <table>
+    <thead><tr><th style="width:200px;">模块/方法</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>data_mysql.mysql_load()</code></td><td>将运算结果批量写入 MySQL（mrp/zj_data/cg_data/mrp_version 表），含版本清理逻辑（删除旧版本数据），无业务计算</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.3 数据格式化与转换</h3>
+  <table>
+    <thead><tr><th style="width:200px;">功能</th><th>位置</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>中越双语表头翻译</td><td><code>excel.py vn_titles</code></td><td>108个字段的中文→越南语映射字典</td></tr>
+      <tr><td>日期格式化</td><td>多处</td><td><code>strftime("%Y-%m-%d")</code> 统一格式化，要求到货日期减1天等</td></tr>
+      <tr><td>数字格式化</td><td><code>excel.py format_float</code></td><td>有小数保留3位，无小数显示整数</td></tr>
+      <tr><td>字段重命名</td><td><code>excel.py</code></td><td>DataFrame rename 操作（如 预计开工日期→要求到货日期）</td></tr>
+      <tr><td>空值填充</td><td><code>excel.py</code></td><td><code>fillna("")</code> 处理 NaN 值</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.4 业务标记与分类逻辑（判断型，非计算型）</h3>
+  <table>
+    <thead><tr><th style="width:200px;">功能</th><th>位置</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>多角贸易判断</td><td><code>excel.py djmy()</code></td><td>根据跟单码含 XS07/XS09/XS79 判断发往越南/姜山/广西，是标记非计算</td></tr>
+      <tr><td>新品状态判断</td><td><code>excel.py cg_xp()/zj_xp()</code></td><td>根据 ERP 的 IMAFUD003/IMAFUA003 字段判断"新品"/"新品已试产"</td></tr>
+      <tr><td>补给策略映射</td><td><code>compute.py</code></td><td><code>{"1":"外购","2":"自制","3":"委外"}</code> 纯字典映射</td></tr>
+      <tr><td>需求计算方式映射</td><td><code>compute.py</code></td><td><code>{"1":"APS计算","2":"人工计算"}</code> 纯字典映射</td></tr>
+      <tr><td>采购人员交接</td><td><code>excel.py</code></td><td>通过 <code>ryjj</code> 字典将旧采购员名替换为新采购员名</td></tr>
+      <tr><td>QG34 特殊分配</td><td><code>excel.py</code></td><td>LG 站点 QG34 采购单固定分配给"千银海"</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.5 Excel 报表生成（非计算）</h3>
+  <table>
+    <thead><tr><th style="width:200px;">功能</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>Sheet 创建与排序</td><td>按业务逻辑创建多个 Sheet 并设置顺序</td></tr>
+      <tr><td>数据分组与聚合</td><td>使用 pandas groupby + agg 对数据按成本中心/料号/日期聚合（数据整理，非MRP计算）</td></tr>
+      <tr><td>车间分表拆分</td><td>按 sort_dict 排序后，每个成本中心生成独立 Sheet</td></tr>
+      <tr><td>文件保存与清理</td><td>保存 Excel，删除当天较早版本文件（仅保留最新）</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.6 被注释/禁用的功能</h3>
+  <div class="info-box orange">
+    以下功能在代码中存在但已被注释或禁用，当前不参与运行：
+    <ul style="margin-top:6px;">
+      <li><code>allocate()</code> 成本中心数量分配函数 — 在 excel.py 中被注释（第280行 <code># allocate(i, i["需求"],f)</code>）</li>
+      <li><code>grouped_wg</code> 采购需求按多维度 groupby 聚合 — 被替换为直接使用明细数据（第200行 <code>grouped_wg=df_wg</code>）</li>
+      <li><code>unaudited_purchase_order()</code> 未审核采购订单查询 — 整个方法被注释</li>
+      <li><code>qg()</code> 请购需求查询 — 整个方法被注释</li>
+      <li><code>cgzt</code> 采购订单明细 Sheet 输出 — 被注释</li>
+      <li><code>qg_map</code> 请购需求扣减逻辑 — 被注释</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Section 8 -->
+<div class="section" id="s8">
+  <h2><span class="num">8</span>数据流转全链路</h2>
+
+  <h3>完整数据流</h3>
+  <div class="code-block">
+<span class="comment">━━━ 第1阶段：数据加载 ━━━</span>
+Oracle ERP (192.168.0.199)
+  ├── bomfunc()        → bom_dict        {主件: [子件BOM列表]}
+  ├── basefunc()       → base_dict        {料号: 基础属性}
+  ├── needfunc()       → need             [工单/销售订单需求]
+  ├── remainfunc()     → remain_dict      {料号: 库存量}
+  ├── cjfunc()         → cj_dict          {料号: 在制量}
+  ├── get_special_supply() → gd01         {料号: GD01供给}
+  ├── testfunc()       → tests_dict       {料号: 在验量}
+  ├── in_transit()     → in_transit_dict  {料号: 采购在途}
+  ├── production_supply() → production_supply_dict  {料号: 工单供给}
+  ├── purchase_order_detail() → purchase_order_detail_dict  {料号: [采购单]}
+  ├── buyerfunc()      → buyer_dict       {料号: 采购信息}
+  ├── itemsfunc()      → items_dict       {料号: 品名规格}
+  ├── vn_itemsfunc()   → vn_items_dict    {料号: 越南语品名}
+  ├── outsourcing_type() → outsourcing_type_dict  {料号: 外购类型}
+  ├── safetystock()    → safetystock      [安全库存需求]
+  ├── gd_bom()         → gd_bom_dict      {料号: {BOM_JSON: 未交量}}
+  └── substitute()     → substitutes      {主件_下阶: [替代料]}
+
+MySQL MRP (192.168.0.78)
+  ├── leadtime_func()  → leadtime_map     {(站点,编码): 天数}
+  └── holiday_func()   → holiday          [(开始日,结束日)]
+
+MySQL lowcode (10.19.204.8)
+  ├── remark()         → remark           {跟单码: (备注,回复,交期)}
+  └── ryjj()           → ryjj             {旧采购员: 新采购员}
+
+<span class="comment">━━━ 第2阶段：MRP运算 ━━━</span>
+calculate()
+  ├── 遍历 need → sss() → remain_operation() → demand() → aaa() → xxxx() → 递归...
+  ├── 遍历 safetystock → sss() → 同上
+  ├── 汇总总装发出数量
+  └── 生成库存报告 self.r
+  → 输出: self.l (物料需求列表), self.r (库存汇总)
+
+<span class="comment">━━━ 第3阶段：报表输出 ━━━</span>
+excel.f()
+  ├── 物料需求 Sheet    ← ser.l
+  ├── 库存情况 Sheet    ← ser.r
+  ├── 采购需求明细 Sheet ← ser.l 过滤外购 + 匹配 purchase_order_detail_dict
+  ├── 销售备货 Sheet     ← ser.l 过滤 XS 类
+  ├── 生产需求 Sheet     ← ser.l 过滤非外购 + groupby聚合 + 工单供给分配
+  ├── 各车间分表        ← 生产需求按成本中心拆分
+  ├── 主计划 Sheet       ← ser.need
+  ├── 保存 Excel 文件
+  └── mysql_load() 写入 MySQL
+  </div>
+</div>
+
+<!-- Section 9 -->
+<div class="section" id="s9">
+  <h2><span class="num">9</span>数据库连接与数据源</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>数据库</th>
+        <th>地址</th>
+        <th>账号</th>
+        <th>库名</th>
+        <th>用途</th>
+        <th>连接方式</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Oracle ERP</td>
+        <td>192.168.0.199:1521</td>
+        <td>erp_reader</td>
+        <td>topprd (T100)</td>
+        <td>读取全部基础数据</td>
+        <td>cx_Oracle</td>
+      </tr>
+      <tr>
+        <td>MySQL MRP</td>
+        <td>192.168.0.78</td>
+        <td>lglrp / root</td>
+        <td>mrp</td>
+        <td>读取配置 + 写入结果</td>
+        <td>pymysql</td>
+      </tr>
+      <tr>
+        <td>MySQL lowcode</td>
+        <td>10.19.204.8</td>
+        <td>lowcode</td>
+        <td>lowcode</td>
+        <td>读取备注/人员交接</td>
+        <td>pymysql</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="info-box red">
+    <strong>安全风险：</strong>数据库密码硬编码在源代码中（Oracle: erp#query, MySQL root: 123456 等），存在严重的安全隐患。建议使用环境变量或配置文件管理敏感信息。
+  </div>
+</div>
+
+<!-- Section 10 -->
+<div class="section" id="s10">
+  <h2><span class="num">10</span>多站点支持与配置差异</h2>
+
+  <table>
+    <thead><tr><th>站点代码</th><th>站点名称</th><th>MRP版本</th><th>委外编码</th><th>特殊处理</th></tr></thead>
+    <tbody>
+      <tr><td>LG</td><td>乐歌（总部）</td><td>WAPS002</td><td>0000</td><td>默认采购员"张玉洪"；QG34采购单→千银海；喷塑模块化+1天；车间排序</td></tr>
+      <tr><td>YN</td><td>越南</td><td>YN01</td><td>0002</td><td>生成越南语字段；Sheet名追加"chi tiết"</td></tr>
+      <tr><td>QU</td><td>曲阜</td><td>WAPS001</td><td>0003</td><td>无特殊处理</td></tr>
+      <tr><td>GX</td><td>广西</td><td>WAPS001</td><td>0001</td><td>无特殊处理</td></tr>
+      <tr><td>FN</td><td>奉化</td><td>FN01</td><td>0004</td><td>生成越南语字段</td></tr>
+    </tbody>
+  </table>
+
+  <h3>站点差异处理点</h3>
+  <ul>
+    <li><strong>needfunc()：</strong>工单号前缀使用站点代码（如 LG-GD01）</li>
+    <li><strong>remain_operation()：</strong>leadtime_map 按 (站点, 成本中心编码) 查询</li>
+    <li><strong>excel.py：</strong>YN/FN 站点添加越南语字段列和 Sheet 名后缀</li>
+    <li><strong>excel.py：</strong>车间排序表 sort_dict 仅配置了 LG 站点</li>
+    <li><strong>main.py：</strong>当前仅启用 LG 站点，其他站点被注释</li>
+  </ul>
+</div>
+
+<!-- Section 11 -->
+<div class="section" id="s11">
+  <h2><span class="num">11</span>风险与改进建议</h2>
+
+  <h3>安全风险</h3>
+  <table>
+    <thead><tr><th style="width:60px;">等级</th><th>问题</th><th>建议</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-core">高</span></td><td>数据库密码硬编码在源码中</td><td>使用环境变量或加密配置文件</td></tr>
+      <tr><td><span class="badge badge-core">高</span></td><td>SQL 注入风险：多处使用 <code>.format()</code> 拼接 SQL</td><td>改用参数化查询</td></tr>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>Oracle Instant Client 路径硬编码 <code>D:\instantclient\...</code></td><td>使用环境变量配置</td></tr>
+    </tbody>
+  </table>
+
+  <h3>代码质量</h3>
+  <table>
+    <thead><tr><th style="width:60px;">等级</th><th>问题</th><th>建议</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>大量注释掉的代码未清理</td><td>使用版本控制，删除死代码</td></tr>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>缺少 <code>__init__.py</code>，依赖运行目录</td><td>添加包初始化文件</td></tr>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>无异常处理，数据库连接失败会直接崩溃</td><td>添加 try-except 和日志</td></tr>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>变量命名不规范（如 <code>sss</code>, <code>aaa</code>, <code>xxxx</code>）</td><td>使用有意义的函数名</td></tr>
+      <tr><td><span class="badge badge-data">低</span></td><td>无单元测试</td><td>添加核心运算的测试用例</td></tr>
+    </tbody>
+  </table>
+
+  <h3>架构优化</h3>
+  <table>
+    <thead><tr><th style="width:60px;">等级</th><th>问题</th><th>建议</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>数据库连接未使用连接池，每次查询都新建连接</td><td>引入连接池管理</td></tr>
+      <tr><td><span class="badge" style="background:var(--orange-light);color:var(--orange);">中</span></td><td>Oracle 连接在 __init__ 中打开，若中途异常不会关闭</td><td>使用上下文管理器</td></tr>
+      <tr><td><span class="badge badge-data">低</span></td><td>substitute() 方法的返回值加载了但未使用</td><td>确认是否需要，否则删除</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box green">
+    <strong>总体评价：</strong>该系统是一个功能完整的 MRP 物料需求计划引擎，核心算法（多级BOM展开、库存扣减、前置时间排程、假期调整、齐套数计算）逻辑清晰且业务针对性强。多站点支持、中越双语输出等特性体现了实际生产环境的需求。主要改进方向集中在安全加固、异常处理和代码规范方面。
+  </div>
+</div>
+
+<div class="footer">
+  APS 系统代码分析报告 &nbsp;|&nbsp; 生成于 2026-08-03
+</div>
+
+</div>
+</body>
+</html>
