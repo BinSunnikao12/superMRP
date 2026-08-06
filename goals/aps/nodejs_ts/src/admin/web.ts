@@ -218,10 +218,32 @@ function renderAdmin(): string {
   .workbench-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr);gap:12px;margin-bottom:12px}.command-card{position:relative;overflow:hidden;background:linear-gradient(125deg,#111923 0%,#132233 60%,#17200f 100%);border:1px solid #334155;border-left:4px solid #f59e0b;border-radius:4px;padding:22px}.command-card:before{content:"MRP";position:absolute;right:-8px;bottom:-35px;font:900 116px/1 "DIN Alternate",sans-serif;color:rgba(255,255,255,.025)}.eyebrow{font-size:10px;letter-spacing:.22em;color:#f59e0b;text-transform:uppercase}.command-card h2{font-size:29px;letter-spacing:-.035em;margin:7px 0 5px;color:#f8fafc}.command-card p{max-width:680px;color:#94a3b8;margin:0;line-height:1.8}.command-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}.action-btn{position:relative;margin:0;padding:10px 15px;border:1px solid #475569;border-radius:3px;background:#17202b;color:#e2e8f0;font-weight:750;letter-spacing:.02em}.action-btn:hover{background:#202b38;border-color:#64748b}.action-btn.primary{background:#d97706;border-color:#f59e0b;color:#160c02}.action-btn.primary:hover{background:#f59e0b}.action-btn.compute{background:#0f766e;border-color:#14b8a6}.action-note{font-size:10px;color:#64748b;align-self:center}
   .shift-card{background:#101820;border:1px solid #263442;border-radius:4px;padding:17px}.shift-label{font-size:9px;letter-spacing:.2em;color:#64748b}.shift-status{font-size:22px;font-weight:800;margin:7px 0;color:#e2e8f0}.shift-line{height:1px;background:#263442;margin:13px 0}.shift-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shift-meta b{display:block;font-size:16px;color:#f8fafc}.shift-meta span{font-size:9px;color:#64748b;letter-spacing:.08em}.run-terminal{margin-top:12px;background:#070b0f;border:1px solid #263442;border-radius:3px;padding:10px;height:92px;overflow:auto;font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#7dd3fc}
   .formula-strip{display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:8px;margin-bottom:12px}.formula-main,.formula-chip{background:#101820;border:1px solid #263442;border-radius:4px;padding:13px}.formula-main{border-top:3px solid #f59e0b}.formula-main small,.formula-chip small{display:block;color:#64748b;font-size:9px;letter-spacing:.12em;margin-bottom:7px}.formula-main strong{font:700 14px/1.5 ui-monospace,monospace;color:#fbbf24}.formula-chip b{font-size:13px;color:#e2e8f0}.formula-chip p{font-size:10px;color:#64748b;margin:5px 0 0;line-height:1.5}
-  .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{max-height:48vh;overflow:auto;border:1px solid #263442}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
+  .mrp-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.mrp-toolbar h2{margin:0;font-size:14px;color:#e2e8f0}.mrp-toolbar select{min-width:100px}.preview-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.preview-metric{padding:12px;background:#0c131b;border:1px solid #263442;border-radius:3px}.preview-metric span{display:block;color:#64748b;font-size:9px;letter-spacing:.1em}.preview-metric b{display:block;margin-top:4px;font-size:19px;font-variant-numeric:tabular-nums}.preview-metric.alert b{color:#fb923c}.net-positive{color:#fb923c;font-weight:800}.supply-value{color:#5eead4}.mrp-result{border:1px solid #263442;overflow:visible}.mode-badge{display:inline-block;padding:2px 7px;border:1px solid #475569;border-radius:999px;font-size:9px;color:#94a3b8}
   .freshness{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:10px}.freshness b{color:#cbd5e1;font-weight:650}
   .formula-value{cursor:help;text-decoration:underline dotted rgba(251,191,36,.45);text-underline-offset:3px}.formula-tooltip{display:none;position:fixed;z-index:1000;max-width:420px;padding:11px 13px;border:1px solid #f59e0b;border-radius:4px;background:#080d13;color:#dbeafe;box-shadow:0 12px 36px rgba(0,0,0,.55);white-space:pre-line;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}.formula-tooltip.visible{display:block}
   .bom-link{cursor:zoom-in;border-bottom:1px dashed #f59e0b}.bom-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.bom-title{font-size:22px;font-weight:800;color:#f8fafc}.bom-sub{margin-top:5px;color:#64748b;font-size:11px}.bom-path{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0;color:#94a3b8}.bom-node{padding:3px 8px;border:1px solid #334155;background:#0f172a;color:#fbbf24;border-radius:3px}.drillable{color:#fbbf24}.leaf{color:#64748b}.bom-actions{display:flex;gap:7px;align-items:center}
+  .mrp-filters{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 10px}.mrp-filters input{min-width:220px}.sort-btn{background:#17202b;border:1px solid #475569}.sort-btn.active{background:#0f766e;border-color:#14b8a6}.bom-count{color:#fbbf24;font-weight:750}
+  /* ===== 两栏工作区: 左边列表 + 右边详情抽屉 ===== */
+  .mrp-workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(380px,0.55fr);gap:12px;align-items:start}
+  .mrp-list{min-width:0;display:flex;flex-direction:column;gap:10px}
+  .mrp-detail{position:sticky;top:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:14px;max-height:calc(100vh - 24px);overflow:auto}
+  .mrp-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #263442}
+  .mrp-detail-title{font-size:13px;font-weight:700;color:#93c5fd}
+  .mrp-detail-back{background:#17202b;border:1px solid #475569;color:#cbd5e1;margin:0;padding:4px 10px}
+  .mrp-detail-back:hover{background:#202b38}
+  .mrp-detail-body{min-height:140px}
+  .mrp-empty{padding:36px 12px;text-align:center;color:#64748b;font-size:12px;line-height:1.7}
+  .mrp-empty .arrow{font-size:24px;color:#475569;margin-bottom:10px;display:block}
+  .mrp-detail table{table-layout:fixed}
+  .mrp-detail th{background:#0a1017;font-size:10px}
+  .mrp-detail td{padding:4px 6px;font-size:11px;max-width:160px}
+  .bom-list-item{padding:7px 9px;background:#0c131b;border:1px solid #1e293b;border-radius:3px;margin-bottom:5px;cursor:pointer;transition:border-color .15s}
+  .bom-list-item:hover{border-color:#f59e0b;background:#101820}
+  .bom-list-item.selected{border-color:#f59e0b;background:#172033}
+  .bom-list-item b{color:#fbbf24;font-family:ui-monospace,Menlo,monospace}
+  .bom-list-item .qty{color:#94a3b8;font-size:11px;margin-left:6px}
+  /* 响应式: 屏幕窄时降为单列 */
+  @media(max-width:1180px){.mrp-workspace{grid-template-columns:1fr}.mrp-detail{position:static;max-height:560px}}
   @media(max-width:1000px){.workbench-hero{grid-template-columns:1fr}.formula-strip{grid-template-columns:1fr 1fr}.preview-metrics{grid-template-columns:1fr 1fr}}@media(max-width:620px){.formula-strip{grid-template-columns:1fr}.preview-metrics{grid-template-columns:1fr}}
 </style>
 </head>
@@ -246,7 +268,30 @@ function renderAdmin(): string {
     <aside class="shift-card"><div class="shift-label">CURRENT PLANNING RUN</div><div id="jobStatus" class="shift-status">等待指令</div><div class="shift-line"></div><div class="shift-meta"><div><b id="jobSite">—</b><span>当前基地</span></div><div><b id="jobRows">0</b><span>当前接口行数</span></div></div><div id="jobTerminal" class="run-terminal">系统就绪，等待同步任务。</div></aside>
   </div>
   <div class="formula-strip"><div class="formula-main"><small>核心净需求公式</small><strong>MAX(0, 毛需求 + 安全库存 − 库存 − 在制 − 特殊工单供给)</strong></div><div class="formula-chip"><small>毛需求</small><b>需求量 × QPA</b><p>工单/SFBA 与销售订单需求</p></div><div class="formula-chip"><small>使用顺序</small><b>库存 → 在制 → 特殊供给</b><p>按 Python demand() 顺序消耗</p></div><div class="formula-chip"><small>损耗与批量</small><b>CEIL(净需×损耗÷批量)</b><p>正式递归计算阶段应用</p></div><div class="formula-chip"><small>采购信号</small><b>在途 / 在验单列</b><p>不擅自抵扣 Python 净需求</p></div></div>
-  <div class="card"><div class="mrp-toolbar"><div><h2>净需求信号预览 <span class="mode-badge">全部物料实时计算</span></h2><div id="previewFreshness" class="freshness"><span>尚未计算</span></div></div><div><label>BOM </label><select id="mrpBomFilter"><option value="all">全部物料</option><option value="hasBom">仅有下阶物料</option></select> <label>基地 </label><select id="mrpSite"><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div><div id="previewMetrics" class="preview-metrics"></div><div id="mrpResult" class="mrp-result"><div class="empty-row">同步样本后，点击“计算净需求预览”</div></div></div>
+  <div class=”mrp-workspace”>
+    <!-- 左栏: 筛选 + 指标 + 净需求表 + 分页 -->
+    <div class=”mrp-list”>
+      <div class=”card mrp-toolbar-card”>
+        <div class=”mrp-toolbar”><div><h2>净需求信号预览 <span class=”mode-badge”>服务端分页实时计算</span></h2><div id=”previewFreshness” class=”freshness”><span>尚未计算</span></div></div><div><label>基地 </label><select id=”mrpSite”><option>LG</option><option>YN</option><option>QU</option><option>GX</option><option>FN</option></select></div></div>
+        <div class=”mrp-filters”><input id=”mrpKeyword” placeholder=”搜索料号、名称或规格”/><select id=”mrpBomFilter”><option value=”all”>全部 BOM 状态</option><option value=”hasBom”>仅有下阶物料</option><option value=”noBom”>仅无下阶物料</option></select><select id=”mrpShortageFilter”><option value=”all”>全部需求状态</option><option value=”shortage”>仅净需求 &gt; 0</option><option value=”covered”>仅净需求 = 0</option></select><label>每页</label><select id=”mrpPageSize”><option>20</option><option selected>50</option><option>100</option></select><button id=”mrpSearch”>筛选</button><button id=”mrpReset”>重置</button><span style=”color:#64748b;font-size:11px”>排序</span><button class=”sort-btn active” data-sort=”net_desc”>净需求 ↓</button><button class=”sort-btn” data-sort=”gross_desc”>毛需求 ↓</button><button class=”sort-btn” data-sort=”bom_desc”>下阶数 ↓</button><button class=”sort-btn” data-sort=”part_asc”>料号 ↑</button></div>
+        <div id=”previewMetrics” class=”preview-metrics”></div>
+        <div id=”mrpResult” class=”mrp-result”><div class=”empty-row”>同步数据后，点击”计算净需求预览”</div></div>
+        <div id=”mrpPager” class=”pagination”></div>
+      </div>
+    </div>
+
+    <!-- 右栏: BOM 详情抽屉(选中料件后实时显示) -->
+    <aside class=”mrp-detail” id=”mrpDetail”>
+      <div class=”mrp-detail-head”><div class=”mrp-detail-title”>BOM 详情 / 下阶钻取</div></div>
+      <div class=”mrp-detail-body”>
+        <div class=”mrp-empty”>
+          <span class=”arrow”>←</span>
+          在左侧表格中<strong>点击料号</strong>或<strong>”查看 BOM”按钮</strong><br/>
+          这里会显示该料件的 BOM 结构 + 各级下阶数量
+        </div>
+      </div>
+    </aside>
+  </div>
 </div>
 <div id="formulaTooltip" class="formula-tooltip"></div>
 
@@ -426,12 +471,20 @@ function qtyCell(value, className, formula, source) {
   return '<td class="formula-value ' + (className || '') + '" data-explain="' + explainAttr(explanation) + '">' + fmtQty(value) + '</td>';
 }
 
-async function loadMrpPreview() {
+let mrpCurrentPage = 1;
+let mrpCurrentSort = 'net_desc';
+async function loadMrpPreview(page = 1) {
+  mrpCurrentPage = page;
   const site = document.getElementById('mrpSite').value;
-  const hasBomOnly = document.getElementById('mrpBomFilter').value === 'hasBom';
+  const bomFilter = document.getElementById('mrpBomFilter').value;
+  const shortage = document.getElementById('mrpShortageFilter').value;
+  const keyword = document.getElementById('mrpKeyword').value.trim();
+  const pageSize = document.getElementById('mrpPageSize').value;
   const result = document.getElementById('mrpResult');
   result.innerHTML = '<div class="empty-row">正在汇总 ' + site + ' 的需求与供给信号…</div>';
-  const r = await fetch(API + '/mrp/preview?site=' + encodeURIComponent(site) + (hasBomOnly ? '&hasBom=1' : ''));
+  const params = new URLSearchParams({site,bomFilter,shortage,sort:mrpCurrentSort,page:String(page),pageSize});
+  if (keyword) params.set('keyword', keyword);
+  const r = await fetch(API + '/mrp/preview?' + params.toString());
   const data = await r.json();
   if (!r.ok) { result.innerHTML = '<div class="empty-row">' + htmlEsc(data.error || '计算失败') + '</div>'; return; }
   const s = data.summary;
@@ -442,11 +495,11 @@ async function loadMrpPreview() {
     '<span>耗时 <b>' + fmtQty(data.duration_ms) + ' ms</b></span>' +
     '<span>数据快照 <b>' + htmlEsc(snapshotAt) + '</b></span>';
   document.getElementById('previewMetrics').innerHTML =
-    '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：COUNT(DISTINCT 料号)\\n来源：raw_need、raw_remain、raw_cj、raw_special_supply、raw_safetystock\\n结果：' + fmtQty(s.materials)) + '"><span>全部物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
+    '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：筛选后 COUNT(DISTINCT 料号)\\n来源：raw_need、raw_remain、raw_cj、raw_special_supply、raw_safetystock\\n结果：' + fmtQty(s.materials)) + '"><span>筛选物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
     '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：Σ(每个物料的毛需求)\\n来源：raw_need.qty × qpa_num ÷ qpa_den\\n结果：' + fmtQty(s.gross_demand)) + '"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
     '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：Σ MAX(0, 毛需求 + 安全库存 - 库存 - 在制 - 特殊供给)\\n来源：raw_need、raw_safetystock、raw_remain、raw_cj、raw_special_supply\\n结果：' + fmtQty(s.net_demand)) + '"><span>净需求合计</span><b>' + fmtQty(s.net_demand) + '</b></div>' +
     '<div class="preview-metric alert formula-value" data-explain="' + explainAttr('公式：COUNT(净需求 > 0 的料号)\\n来源：全部物料净需求计算结果\\n结果：' + fmtQty(s.shortage_materials)) + '"><span>缺料物料数</span><b>' + fmtQty(s.shortage_materials) + '</b></div>';
-  const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验','操作'];
+  const head = ['料号','品名 / 规格','毛需求','安全库存','可用库存','可用在制','特殊供给','净需求','在途','在验','下阶数','操作'];
   const rows = data.rows.map(x => {
     const netFormula = 'MAX(0, ' + fmtQty(x.gross_demand) + ' + ' + fmtQty(x.safety_stock) + ' - ' + fmtQty(x.available_stock) + ' - ' + fmtQty(x.available_wip) + ' - ' + fmtQty(x.special_supply) + ')';
     return '<tr><td><code class="bom-link ' + (x.has_bom ? '' : 'leaf') + '" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '" title="' + (x.has_bom ? '双击查看 BOM' : '没有下阶 BOM') + '">' + htmlEsc(x.part_no) + '</code></td><td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
@@ -458,9 +511,12 @@ async function loadMrpPreview() {
       qtyCell(x.net_demand, 'net-positive', netFormula, '上述需求与供给字段实时计算') +
       qtyCell(x.in_transit, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_in_transit.qty') +
       qtyCell(x.inspecting, '', 'Σ(qty)，仅展示、暂不抵扣净需求', 'raw_testfunc.qty') +
-      '<td>' + (x.has_bom ? '<button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '">BOM 详情</button>' : '<span class="leaf">无下阶</span>') + '</td></tr>';
+      '<td class="bom-count">' + Number(x.bom_count || 0).toLocaleString() + '</td>' +
+      '<td>' + (x.has_bom ? '<button class="bom-open" data-site="' + htmlEsc(site) + '" data-part="' + htmlEsc(x.part_no) + '">查看 BOM (' + Number(x.bom_count || 0).toLocaleString() + ')</button>' : '<span class="leaf">无下阶</span>') + '</td></tr>';
   }).join('');
-  result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  result.innerHTML = '<table><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + (rows || '<tr><td colspan="12" class="empty-row">没有符合筛选条件的物料</td></tr>') + '</tbody></table>';
+  const totalPages = Math.max(1, data.totalPages || 1);
+  document.getElementById('mrpPager').innerHTML = '<button onclick="loadMrpPreview(1)" ' + (page === 1 ? 'disabled' : '') + '>« 首页</button><button onclick="loadMrpPreview(' + (page - 1) + ')" ' + (page === 1 ? 'disabled' : '') + '>‹ 上一页</button><span style="margin:0 8px">第 ' + page + ' / ' + totalPages + ' 页 · 共 ' + Number(data.total || 0).toLocaleString() + ' 条</span><button onclick="loadMrpPreview(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled' : '') + '>下一页 ›</button><button onclick="loadMrpPreview(' + totalPages + ')" ' + (page >= totalPages ? 'disabled' : '') + '>末页 »</button>';
 }
 
 const formulaTooltip = document.getElementById('formulaTooltip');
@@ -500,6 +556,176 @@ function bomParams() {
   const query = location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?') + 1) : '';
   return new URLSearchParams(query);
 }
+
+// ============ BOM 详情渲染到右栏（v0.7 新增） ============
+// 选中料件时,直接渲染到 #mrpDetail;不再切换整个 panel
+let detailCurrentSite = '';
+let detailCurrentPart = '';
+let detailTrail = [];        // 面包屑轨迹)
+let detailPage = 1;
+let detailPageSize = 50;
+let detailTotal = 0;
+let detailTotalPages = 1;
+let detailData = null;       // 最近一次 API 返回
+
+async function selectPartForDetail(site, part) {
+  detailCurrentSite = site;
+  detailCurrentPart = part;
+  detailTrail = [];
+  detailPage = 1;
+  await loadBomDetail();
+}
+
+async function loadBomDetail() {
+  const detail = document.getElementById('mrpDetail');
+  if (!detailCurrentPart) {
+    detail.querySelector('.mrp-detail-body').innerHTML =
+      '<div class="mrp-empty"><span class="arrow">←</span>在左侧表格中<strong>点击料号</strong>或<strong>"查看 BOM"按钮</strong><br/>这里会显示该料件的 BOM 结构 + 各级下阶数量</div>';
+    return;
+  }
+  detail.querySelector('.mrp-detail-body').innerHTML =
+    '<div class="empty-row">正在读取 ' + htmlEsc(detailCurrentPart) + ' 的 BOM…</div>';
+  const apiParams = new URLSearchParams({
+    site: detailCurrentSite,
+    part: detailCurrentPart,
+    page: String(detailPage),
+    pageSize: String(detailPageSize),
+  });
+  const res = await fetch(API + '/bom/children?' + apiParams.toString());
+  const data = await res.json();
+  detailData = data;
+  if (!res.ok) {
+    detail.querySelector('.mrp-detail-body').innerHTML =
+      '<div class="empty-row">' + htmlEsc(data.error || 'BOM 查询失败') + '</div>';
+    return;
+  }
+  detailTotal = Number(data.total || 0);
+  detailTotalPages = Math.max(1, detailTotal / detailPageSize);
+  renderBomDetail();
+}
+
+function renderBomDetail() {
+  const detail = document.getElementById('mrpDetail');
+  const pathParts = [...detailTrail, detailCurrentPart];
+  const head = document.createElement('div');
+  head.className = 'mrp-detail-head';
+  head.innerHTML =
+    '<div class="mrp-detail-title">BOM 第 ' + (pathParts.length) + ' 层 · ' + htmlEsc(detailCurrentPart) +
+    (detailData?.parent?.name ? ' · ' + htmlEsc(detailData.parent.name) : '') + '</div>' +
+    '<button class="mrp-detail-back" id="mrpDetailClose">关闭</button>';
+  detail.querySelector('.mrp-detail-head').replaceWith(head);
+
+  const body = document.createElement('div');
+  body.className = 'mrp-detail-body';
+
+  // 面包屑
+  if (detailTrail.length > 0) {
+    const crumb = document.createElement('div');
+    crumb.className = 'bom-path';
+    crumb.innerHTML = detailTrail.map((node, idx) =>
+      '<button class="bom-node bom-crumb-detail" data-index="' + idx + '">' + htmlEsc(node) + '</button>'
+    ).join('<span>›</span>') + '<span>›</span>' +
+      '<button class="bom-node bom-crumb-detail current">' + htmlEsc(detailCurrentPart) + '</button>';
+    body.appendChild(crumb);
+  }
+
+  // 元信息
+  const meta = document.createElement('div');
+  meta.style.cssText = 'font-size:11px;color:#94a3b8;margin:6px 0 10px;line-height:1.6';
+  meta.innerHTML =
+    '基地 <b style="color:#e2e8f0">' + htmlEsc(detailCurrentSite) + '</b> · ' +
+    '直接子件 <b style="color:#e2e8f0">' + detailTotal.toLocaleString() + '</b> 项 · ' +
+    '快照 <b style="color:#e2e8f0">' + (detailData?.snapshot_at ? new Date(detailData.snapshot_at).toLocaleString('zh-CN') : '-') + '</b>';
+  body.appendChild(meta);
+
+  // 子件表格
+  const tableWrap = document.createElement('div');
+  if (!detailData.rows || detailData.rows.length === 0) {
+    tableWrap.innerHTML = '<div class="empty-row">该物料没有下阶 BOM</div>';
+  } else {
+    let rowsHtml = '<table><thead><tr><th>项次</th><th>子件料号</th><th>名称 / 规格</th><th>组成用量</th><th>单位</th><th>主件/子件类别</th><th>操作</th></tr></thead><tbody>';
+    detailData.rows.forEach(x => {
+      rowsHtml += '<tr><td>' + htmlEsc(x.seq || '-') + '</td>' +
+        '<td><code class="bom-link-detail ' + (x.has_children ? 'drillable' : 'leaf') + '" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(x.sub_part) + '">' + htmlEsc(x.sub_part) + '</code></td>' +
+        '<td><b>' + htmlEsc(x.name || '') + '</b><br><span style="color:#64748b">' + htmlEsc(x.spec || '') + '</span></td>' +
+        '<td>' + fmtQty(x.qty) + '</td>' +
+        '<td>' + htmlEsc(x.issue_uom || '') + '</td>' +
+        '<td>' + htmlEsc(x.main_type || '') + ' / ' + htmlEsc(x.sub_type || '') + '</td>' +
+        '<td>' + (x.has_children ? '<button class="bom-open-detail" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(x.sub_part) + '">展开下一级</button>' : '<span class="leaf">叶子</span>') + '</td></tr>';
+    });
+    rowsHtml += '</tbody></table>';
+    tableWrap.innerHTML = rowsHtml;
+  }
+  body.appendChild(tableWrap);
+
+  // 分页
+  if (detailTotalPages > 1) {
+    const pager = document.createElement('div');
+    pager.className = 'pagination';
+    pager.style.cssText = 'margin-top:10px;text-align:right';
+    pager.innerHTML =
+      '<button data-page="1" class="bom-page-btn" ' + (detailPage === 1 ? 'disabled' : '') + '>« 首页</button>' +
+      '<button data-page="' + (detailPage - 1) + '" class="bom-page-btn" ' + (detailPage === 1 ? 'disabled' : '') + '>‹ 上一页</button>' +
+      '<span style="margin:0 8px">第 ' + detailPage + ' / ' + Math.max(1, Math.ceil(detailTotal / detailPageSize)) + ' 页</span>' +
+      '<button data-page="' + (detailPage + 1) + '" class="bom-page-btn" ' + (detailPage >= Math.ceil(detailTotal / detailPageSize) ? 'disabled' : '') + '>下一页 ›</button>' +
+      '<button data-page="' + Math.ceil(detailTotal / detailPageSize) + '" class="bom-page-btn" ' + (detailPage >= Math.ceil(detailTotal / detailPageSize) ? 'disabled' : '') + '>末页 »</button>';
+    body.appendChild(pager);
+  }
+
+  detail.querySelector('.mrp-detail-body').replaceWith(body);
+  bindDetailEvents();
+}
+
+function bindDetailEvents() {
+  // 关闭按钮
+  const closeBtn = document.getElementById('mrpDetailClose');
+  if (closeBtn) closeBtn.addEventListener('click', () => {
+    detailCurrentSite = '';
+    detailCurrentPart = '';
+    detailTrail = [];
+    loadBomDetail();
+  });
+  // 面包屑回退
+  document.querySelectorAll('.bom-crumb-detail').forEach(c => {
+    if (c.classList.contains('current')) return;
+    c.addEventListener('click', () => {
+      const idx = Number(c.dataset.index);
+      detailTrail = detailTrail.slice(0, idx);
+      detailCurrentPart = detailTrail.pop() || detailCurrentPart;
+      detailTrail = detailTrail.slice(0, idx);
+      detailPage = 1;
+      loadBomDetail();
+    });
+  });
+  // 子件料号双击/点击 → 钻取下一层
+  document.querySelectorAll('.bom-link-detail').forEach(c => {
+    if (c.classList.contains('leaf')) return;
+    c.addEventListener('dblclick', () => drillDown(c.dataset.site, c.dataset.part));
+  });
+  document.querySelectorAll('.bom-open-detail').forEach(b => {
+    b.addEventListener('click', () => drillDown(b.dataset.site, b.dataset.part));
+  });
+  // 分页按钮
+  document.querySelectorAll('.bom-page-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const p = Number(b.dataset.page);
+      if (p >= 1 && p <= Math.ceil(detailTotal / detailPageSize)) {
+        detailPage = p;
+        loadBomDetail();
+      }
+    });
+  });
+}
+
+function drillDown(site, part) {
+  detailTrail = [...detailTrail, detailCurrentPart];
+  detailCurrentSite = site;
+  detailCurrentPart = part;
+  detailPage = 1;
+  loadBomDetail();
+}
+
+// 保留旧 panel-bom 路由处理（用于直接打开 #/bom/explorer）
 async function loadBomFromRoute() {
   const params = bomParams();
   const site = params.get('site') || 'LG';
@@ -528,11 +754,11 @@ async function loadBomFromRoute() {
 function setBomPage(page) { const p = bomParams(); location.hash = bomRoute(p.get('site') || 'LG', p.get('part') || '', page, readBomTrail(p)); }
 document.addEventListener('dblclick', e => {
   const target = e.target.closest && e.target.closest('.bom-link');
-  if (target && !target.classList.contains('leaf') && target.dataset.site && target.dataset.part) openBom(target.dataset.site, target.dataset.part);
+  if (target && !target.classList.contains('leaf') && target.dataset.site && target.dataset.part) selectPartForDetail(target.dataset.site, target.dataset.part);
 });
 document.addEventListener('click', e => {
   const target = e.target.closest && e.target.closest('.bom-open');
-  if (target && target.dataset.site && target.dataset.part) openBom(target.dataset.site, target.dataset.part);
+  if (target && target.dataset.site && target.dataset.part) selectPartForDetail(target.dataset.site, target.dataset.part);
   const crumb = e.target.closest && e.target.closest('.bom-crumb');
   if (crumb) {
     const p = bomParams(); const trail = readBomTrail(p); const path = [...trail, p.get('part')]; const index = Number(crumb.dataset.index);
@@ -544,9 +770,21 @@ document.getElementById('bomPageSize').addEventListener('change', () => setBomPa
 
 document.getElementById('syncSample').addEventListener('click', () => startSync('sample'));
 document.getElementById('syncFull').addEventListener('click', () => startSync('full'));
-document.getElementById('calcPreview').addEventListener('click', loadMrpPreview);
-document.getElementById('mrpSite').addEventListener('change', loadMrpPreview);
-document.getElementById('mrpBomFilter').addEventListener('change', loadMrpPreview);
+document.getElementById('calcPreview').addEventListener('click', () => loadMrpPreview(1));
+document.getElementById('mrpSite').addEventListener('change', () => loadMrpPreview(1));
+document.getElementById('mrpBomFilter').addEventListener('change', () => loadMrpPreview(1));
+document.getElementById('mrpShortageFilter').addEventListener('change', () => loadMrpPreview(1));
+document.getElementById('mrpPageSize').addEventListener('change', () => loadMrpPreview(1));
+document.getElementById('mrpSearch').addEventListener('click', () => loadMrpPreview(1));
+document.getElementById('mrpKeyword').addEventListener('keypress', e => { if (e.key === 'Enter') loadMrpPreview(1); });
+document.getElementById('mrpReset').addEventListener('click', () => {
+  document.getElementById('mrpKeyword').value = ''; document.getElementById('mrpBomFilter').value = 'all';
+  document.getElementById('mrpShortageFilter').value = 'all'; document.getElementById('mrpPageSize').value = '50';
+  mrpCurrentSort = 'net_desc'; document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === mrpCurrentSort)); loadMrpPreview(1);
+});
+document.querySelectorAll('.sort-btn').forEach(button => button.addEventListener('click', () => {
+  mrpCurrentSort = button.dataset.sort; document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b === button)); loadMrpPreview(1);
+}));
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '计算中';
@@ -850,14 +1088,44 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
 
     if (p === '/api/admin/mrp/preview') {
         const site = (urlObj.searchParams.get('site') || 'LG').toUpperCase();
-        const hasBomOnly = urlObj.searchParams.get('hasBom') === '1';
         if (!config.sites.includes(site)) {
             jsonResponse(res, 400, { error: 'unknown site: ' + site });
+            return true;
+        }
+        const bomFilter = urlObj.searchParams.get('bomFilter') || 'all';
+        const shortage = urlObj.searchParams.get('shortage') || 'all';
+        const sort = urlObj.searchParams.get('sort') || 'net_desc';
+        const keyword = (urlObj.searchParams.get('keyword') || '').trim().slice(0, 100);
+        const page = Math.max(1, Number(urlObj.searchParams.get('page') || 1));
+        const requestedPageSize = Number(urlObj.searchParams.get('pageSize') || 50);
+        const pageSize = [20, 50, 100].includes(requestedPageSize) ? requestedPageSize : 50;
+        if (!['all', 'hasBom', 'noBom'].includes(bomFilter) || !['all', 'shortage', 'covered'].includes(shortage)) {
+            jsonResponse(res, 400, { error: 'invalid MRP filter' });
+            return true;
+        }
+        const sortSql: Record<string, string> = {
+            net_desc: 'net_demand DESC,part_no', gross_desc: 'gross_demand DESC,part_no',
+            bom_desc: 'bom_count DESC,net_demand DESC,part_no', part_asc: 'part_no',
+        };
+        if (!sortSql[sort]) {
+            jsonResponse(res, 400, { error: 'invalid MRP sort' });
             return true;
         }
         const calculationStartedAt = Date.now();
         const conn = await mysqlPool().getConnection();
         try {
+            const filters: string[] = [];
+            const filterParams: any[] = [];
+            if (bomFilter === 'hasBom') filters.push('bom_count > 0');
+            if (bomFilter === 'noBom') filters.push('bom_count = 0');
+            if (shortage === 'shortage') filters.push('net_demand > 0');
+            if (shortage === 'covered') filters.push('net_demand = 0');
+            if (keyword) {
+                filters.push('(part_no LIKE ? OR name LIKE ? OR spec LIKE ?)');
+                filterParams.push('%' + keyword + '%', '%' + keyword + '%', '%' + keyword + '%');
+            }
+            const filterSql = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
+            const offset = (page - 1) * pageSize;
             const sql = `WITH
               demand AS (
                 SELECT COALESCE(sfba006, main_part) part_no,
@@ -870,38 +1138,47 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
               safety AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_safetystock WHERE site=? GROUP BY part_no),
               transit AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_in_transit WHERE site=? GROUP BY part_no),
               inspecting AS (SELECT part_no,SUM(COALESCE(qty,0)) qty FROM raw_testfunc WHERE site=? GROUP BY part_no),
+              bom_parent AS (SELECT main_part part_no,COUNT(*) bom_count FROM raw_bom WHERE site=? GROUP BY main_part),
               parts AS (
                 SELECT part_no FROM demand UNION SELECT part_no FROM stock UNION SELECT part_no FROM wip
-                UNION SELECT part_no FROM special_supply UNION SELECT part_no FROM safety
+                UNION SELECT part_no FROM special_supply UNION SELECT part_no FROM safety UNION SELECT part_no FROM bom_parent
               ),
               item_name AS (
                 SELECT part_no,MAX(name) name,MAX(spec) spec FROM raw_items
                 WHERE site=? AND lang='zh_CN' GROUP BY part_no
               ),
-              bom_parent AS (SELECT DISTINCT main_part part_no FROM raw_bom WHERE site=?)
+              base AS (
               SELECT p.part_no,i.name,i.spec,
                      COALESCE(d.gross_demand,0) gross_demand,COALESCE(sa.qty,0) safety_stock,
                      COALESCE(s.qty,0) available_stock,COALESCE(w.qty,0) available_wip,
                      COALESCE(sp.qty,0) special_supply,
                      GREATEST(0,COALESCE(d.gross_demand,0)+COALESCE(sa.qty,0)-COALESCE(s.qty,0)-COALESCE(w.qty,0)-COALESCE(sp.qty,0)) net_demand,
                      COALESCE(t.qty,0) in_transit,COALESCE(ins.qty,0) inspecting,
-                     bp.part_no IS NOT NULL has_bom
+                     COALESCE(bp.bom_count,0) bom_count
               FROM parts p LEFT JOIN demand d ON d.part_no=p.part_no LEFT JOIN stock s ON s.part_no=p.part_no
               LEFT JOIN wip w ON w.part_no=p.part_no LEFT JOIN special_supply sp ON sp.part_no=p.part_no
               LEFT JOIN safety sa ON sa.part_no=p.part_no LEFT JOIN transit t ON t.part_no=p.part_no
               LEFT JOIN inspecting ins ON ins.part_no=p.part_no LEFT JOIN item_name i ON i.part_no=p.part_no
               LEFT JOIN bom_parent bp ON bp.part_no=p.part_no
-              WHERE (?=0 OR bp.part_no IS NOT NULL)
-              ORDER BY net_demand DESC,p.part_no`;
+              ), filtered AS (SELECT * FROM base ${filterSql})
+              SELECT filtered.*,
+                     COUNT(*) OVER() _total,
+                     COALESCE(SUM(gross_demand) OVER(),0) _gross_total,
+                     COALESCE(SUM(net_demand) OVER(),0) _net_total,
+                     COALESCE(SUM(CASE WHEN net_demand>0 THEN 1 ELSE 0 END) OVER(),0) _shortage_total
+              FROM filtered ORDER BY ${sortSql[sort]} LIMIT ${pageSize} OFFSET ${offset}`;
             const snapshotParams = [site, site, site, site, site, site, site, site];
-            const queryParams = [...snapshotParams, site, hasBomOnly ? 1 : 0];
+            const queryParams = [...snapshotParams, site, ...filterParams];
             const [rows] = await conn.query(sql, queryParams) as any;
+            const summaryRow = (rows as any[])[0] || {};
             const normalized = (rows as any[]).map(row => {
                 const out: any = { ...row };
                 for (const key of ['gross_demand','safety_stock','available_stock','available_wip','special_supply','net_demand','in_transit','inspecting']) {
                     out[key] = Number(out[key] || 0);
                 }
-                out.has_bom = Boolean(out.has_bom);
+                out.bom_count = Number(out.bom_count || 0);
+                out.has_bom = out.bom_count > 0;
+                delete out._total; delete out._gross_total; delete out._net_total; delete out._shortage_total;
                 return out;
             });
             const [snapshotRows] = await conn.query(
@@ -920,17 +1197,19 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
             const snapshotAt = (snapshotRows as any[])[0]?.snapshot_at;
             jsonResponse(res, 200, {
                 site,
-                filter: hasBomOnly ? 'has_bom' : 'all',
+                filters: { bomFilter, shortage, keyword }, sort, page, pageSize,
                 calculated_at: new Date().toISOString(),
                 duration_ms: Date.now() - calculationStartedAt,
                 snapshot_at: snapshotAt instanceof Date ? snapshotAt.toISOString() : snapshotAt || null,
                 formula: 'max(0, 毛需求 + 安全库存 - 可用库存 - 可用在制 - 特殊工单供给)',
                 rows: normalized,
+                total: Number(summaryRow._total || 0),
+                totalPages: Math.max(1, Math.ceil(Number(summaryRow._total || 0) / pageSize)),
                 summary: {
-                    materials: normalized.length,
-                    gross_demand: normalized.reduce((n, x) => n + x.gross_demand, 0),
-                    net_demand: normalized.reduce((n, x) => n + x.net_demand, 0),
-                    shortage_materials: normalized.filter(x => x.net_demand > 0).length,
+                    materials: Number(summaryRow._total || 0),
+                    gross_demand: Number(summaryRow._gross_total || 0),
+                    net_demand: Number(summaryRow._net_total || 0),
+                    shortage_materials: Number(summaryRow._shortage_total || 0),
                 },
             });
         } finally { conn.release(); }
