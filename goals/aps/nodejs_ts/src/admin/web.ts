@@ -97,7 +97,7 @@ async function readJsonBody(req: http.IncomingMessage): Promise<any> {
         });
         req.on('end', () => {
             try { resolve(body ? JSON.parse(body) : {}); }
-            catch { reject(new Error('invalid json')); }
+            catch (_e) { reject(new Error('invalid json')); }
         });
         req.on('error', reject);
     });
@@ -263,6 +263,11 @@ function renderAdmin(): string {
   .bom-modal-content{flex:1;overflow:auto;border:1px solid #263442;border-radius:3px;background:#0a1017}
   .bom-modal-content table{font-size:12px}
   .bom-modal-content td{font-family:ui-monospace,monospace;font-size:12px}
+  .bom-tree td{background:transparent}
+  .bom-tree tr:hover td{background:rgba(245,158,11,.06)}
+  .bom-tree tr td:first-child{position:relative}
+  .bom-tree tr td:first-child::before{content:"";position:absolute;left:0;top:0;bottom:0;width:1px;background:#263442}
+  .bom-tree tr td:first-child::after{content:"";position:absolute;left:0;top:50%;width:8px;height:1px;background:#263442}
   .bom-modal-pager{text-align:right;color:#94a3b8;font-size:12px}
   .bom-modal-pager button{margin:0 2px;padding:3px 10px;font-size:11px}
   .bom-link-detail{cursor:zoom-in;border-bottom:1px dashed #f59e0b;padding:1px 4px;background:rgba(245,158,11,.1);border-radius:2px}
@@ -319,6 +324,7 @@ function renderAdmin(): string {
               <button class="action-btn primary" id="syncSample" style="font-size:11px;padding:6px 10px">拉取每表 1000 条</button>
               <button class="action-btn" id="syncFull" style="font-size:11px;padding:6px 10px">全量其他</button>
               <button class="action-btn compute" id="calcPreview" style="font-size:11px;padding:6px 10px">计算净需求</button>
+              <button class="action-btn" id="exportCsv" style="font-size:11px;padding:6px 10px;background:#0e7490;border-color:#06b6d4;color:#fff">导出 CSV</button>
             </div>
           </div>
           <div class="shift-card" style="padding:10px;font-size:11px">
@@ -587,7 +593,7 @@ function renderSyncJob(job) {
 }
 
 async function loadSyncJob() {
-  try { const r = await fetch(API + '/sync/status'); const data = await r.json(); renderSyncJob(data.job); } catch {}
+  try { const r = await fetch(API + '/sync/status'); const data = await r.json(); renderSyncJob(data.job); } catch (_e) {}
 }
 
 function fmtQty(v) { return Number(v || 0).toLocaleString('zh-CN', {maximumFractionDigits:2}); }
@@ -602,6 +608,7 @@ function qtyCell(value, className, formula, source) {
 
 let mrpCurrentPage = 1;
 let mrpCurrentSort = 'net_desc';
+let mrpLastData = null;       // 最近一次 /mrp/preview 完整响应, 给 export CSV 用
 async function loadMrpPreview(page = 1) {
   mrpCurrentPage = page;
   const site = document.getElementById('mrpSite').value;
@@ -623,6 +630,7 @@ async function loadMrpPreview(page = 1) {
     '<span>计算完成 <b>' + htmlEsc(calculatedAt) + '</b></span>' +
     '<span>耗时 <b>' + fmtQty(data.duration_ms) + ' ms</b></span>' +
     '<span>数据快照 <b>' + htmlEsc(snapshotAt) + '</b></span>';
+  mrpLastData = data;
   document.getElementById('previewMetrics').innerHTML =
     '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：筛选后 COUNT(DISTINCT 料号)\\n来源：raw_need、raw_remain、raw_cj、raw_special_supply、raw_safetystock\\n结果：' + fmtQty(s.materials)) + '"><span>筛选物料</span><b>' + fmtQty(s.materials) + '</b></div>' +
     '<div class="preview-metric formula-value" data-explain="' + explainAttr('公式：Σ(每个物料的毛需求)\\n来源：raw_need.qty × qpa_num ÷ qpa_den\\n结果：' + fmtQty(s.gross_demand)) + '"><span>毛需求合计</span><b>' + fmtQty(s.gross_demand) + '</b></div>' +
@@ -696,7 +704,7 @@ function bomRoute(site, part, page = 1, trail = []) {
 }
 function readBomTrail(params) {
   try { const trail = JSON.parse(params.get('trail') || '[]'); return Array.isArray(trail) ? trail.slice(-30) : []; }
-  catch { return []; }
+  catch (_e) { return []; }
 }
 function openBom(site, part) {
   const params = bomParams();
@@ -729,7 +737,158 @@ async function selectPartForDetail(site, part) {
   const modal = document.getElementById('bomModal');
   if (modal) modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  await loadBomDetail();
+  await loadFullBom();
+}
+
+// 递归拉取 BOM 整树 (深度 maxDepth 防止循环引用)
+async function loadFullBom() {
+  const content = document.getElementById('bomModalContent');
+  const title = document.getElementById('bomModalTitle');
+  const meta = document.getElementById('bomModalMeta');
+
+  if (!detailCurrentPart) { closeBomModal(); return; }
+  content.innerHTML = '<div class="empty-row" style="padding:40px">正在展开 ' + htmlEsc(detailCurrentPart) + ' 的 BOM 树…</div>';
+  title.textContent = detailCurrentPart;
+
+  const start = Date.now();
+  try {
+    const tree = await fetchBomTree(detailCurrentSite, detailCurrentPart, 0, 8);
+    detailData = { tree, duration_ms: Date.now() - start };
+    renderBomTree(tree);
+  } catch (e) {
+    content.innerHTML = '<div class="empty-row">' + htmlEsc(String(e && e.message || e)) + '</div>';
+  }
+}
+
+// 递归拉取整棵树: 父件 → 子件数组 → 对每个有下阶的子件,继续拉
+async function fetchBomTree(site, part, depth, maxDepth) {
+  if (depth > maxDepth) {
+    return { part, name: '', spec: '', children: [], truncated: true };
+  }
+  const params = new URLSearchParams({ site, part, page: '1', pageSize: '100' });
+  const res = await fetch(API + '/bom/children?' + params.toString());
+  if (!res.ok) {
+    return { part, name: '', spec: '', children: [], error: 'API ' + res.status };
+  }
+  const data = await res.json();
+  const parent = data.parent || { name: '', spec: '' };
+  // 并发拉取有下阶的子件
+  const childPromises = (data.rows || []).map(async (r) => {
+    if (r.has_children && r.sub_part) {
+      const subTree = await fetchBomTree(site, r.sub_part, depth + 1, maxDepth);
+      return {
+        sub_part: r.sub_part,
+        name: r.name || '',
+        spec: r.spec || '',
+        seq: r.seq,
+        qty: Number(r.qty || 0),
+        available_stock: Number(r.available_stock || 0),
+        available_wip: Number(r.available_wip || 0),
+        main_type: r.main_type || '',
+        sub_type: r.sub_type || '',
+        issue_uom: r.issue_uom || '',
+        children: subTree.children,
+        truncated: subTree.truncated || false,
+      };
+    }
+    return {
+      sub_part: r.sub_part,
+      name: r.name || '',
+      spec: r.spec || '',
+      seq: r.seq,
+      qty: Number(r.qty || 0),
+      available_stock: Number(r.available_stock || 0),
+      available_wip: Number(r.available_wip || 0),
+      main_type: r.main_type || '',
+      sub_type: r.sub_type || '',
+      issue_uom: r.issue_uom || '',
+      children: [],
+    };
+  });
+  const children = await Promise.all(childPromises);
+  return {
+    part,
+    name: parent.name || '',
+    spec: parent.spec || '',
+    children,
+    total_at_level: (data.rows || []).length,
+    total_overall: (data.total || 0),
+  };
+}
+
+// 渲染整棵 BOM 树 (递归)
+function renderBomTree(tree) {
+  const content = document.getElementById('bomModalContent');
+  const meta = document.getElementById('bomModalMeta');
+  const pager = document.getElementById('bomModalPager');
+
+  // 统计总节点
+  function count(node) {
+    let n = node.children.length;
+    for (const c of node.children) n += count(c);
+    return n;
+  }
+  const total = count(tree);
+
+  meta.innerHTML = '基地 <b style="color:#e2e8f0">' + htmlEsc(detailCurrentSite) + '</b> · ' +
+    '层级 <b style="color:#e2e8f0">树状展开 (递归)</b> · ' +
+    '总节点 <b style="color:#e2e8f0">' + total + '</b> · ' +
+    '耗时 <b style="color:#e2e8f0">' + (detailData.duration_ms || 0) + ' ms</b>';
+
+  if (!tree.children || tree.children.length === 0) {
+    content.innerHTML = '<div class="empty-row" style="padding:40px">该物料没有下阶 BOM (叶子物料)</div>';
+    pager.innerHTML = '';
+    return;
+  }
+
+  // 树形 HTML
+  function renderNode(node, level) {
+    const indent = level * 20;
+    const hasChild = node.children && node.children.length > 0;
+    const truncated = node.truncated ? ' <span style="color:#f59e0b;font-size:9px">(深度限制)</span>' : '';
+    let html = '<tr>' +
+      '<td style="padding-left:' + (indent + 8) + 'px;white-space:nowrap">' +
+      (hasChild ? '▾ ' : '· ') + '<b style="color:#fbbf24">' + htmlEsc(node.sub_part) + '</b>' + truncated +
+      '</td>' +
+      '<td>' + fmtQty(node.qty) + '</td>' +
+      '<td style="font-size:11px">' + htmlEsc(node.name || '-') + '</td>' +
+      '<td style="font-size:10px;color:#64748b">' + htmlEsc(node.spec || '') + '</td>' +
+      '<td class="' + (node.available_stock < 0 ? 'net-positive' : 'supply-value') + '">' + fmtQty(node.available_stock) + '</td>' +
+      '<td class="' + (node.available_wip < 0 ? 'net-positive' : 'supply-value') + '">' + fmtQty(node.available_wip) + '</td>' +
+      '<td style="font-size:10px;color:#64748b">' + htmlEsc(node.main_type + '/' + node.sub_type) + '</td>' +
+      '</tr>';
+    if (hasChild) {
+      for (const c of node.children) {
+        html += renderNode(c, level + 1);
+      }
+    }
+    return html;
+  }
+
+  let rowsHtml = '';
+  for (const c of tree.children) {
+    rowsHtml += renderNode(c, 0);
+  }
+
+  content.innerHTML =
+    '<table class="bom-tree"><thead><tr>' +
+    '<th style="width:200px">子件料号 (树状)</th>' +
+    '<th style="width:60px">用量</th>' +
+    '<th>名称</th><th>规格</th>' +
+    '<th style="width:90px;color:#5eead4">库存</th>' +
+    '<th style="width:90px;color:#fbbf24">在制</th>' +
+    '<th style="width:100px">类别</th>' +
+    '</tr></thead><tbody>' + rowsHtml + '</tbody></table>';
+  pager.innerHTML = '';
+  bindTreeEvents();
+}
+
+function bindTreeEvents() {
+  // 暂不需要绑定 (树形无 drilldown;递归已自动展开)
+}
+
+async function loadBomDetail() {
+  await loadFullBom();
 }
 
 function closeBomModal() {
@@ -803,16 +962,20 @@ function renderBomDetail() {
     '直接子件 <b style="color:#e2e8f0">' + detailTotal.toLocaleString() + '</b> 项 (共 ' + totalPages + ' 页) · ' +
     '快照 <b style="color:#e2e8f0">' + (detailData && detailData.snapshot_at ? new Date(detailData.snapshot_at).toLocaleString('zh-CN') : '-') + '</b>';
 
-  // 子件表格
+  // 子件表格 (12 列: 项次/子件/名称/数量/单位/类别/库存/在制/操作)
   if (!detailData.rows || detailData.rows.length === 0) {
     content.innerHTML = '<div class="empty-row" style="padding:40px">该物料没有下阶 BOM (叶子物料)</div>';
   } else {
     let rowsHtml = '<table><thead><tr>' +
-      '<th style="width:50px">项次</th><th>子件料号</th><th>名称 / 规格</th><th style="width:90px">组成用量</th><th style="width:60px">单位</th><th style="width:120px">主件/子件</th><th style="width:100px">操作</th>' +
+      '<th style="width:50px">项次</th><th>子件料号</th><th>名称 / 规格</th><th style="width:90px">组成用量</th><th style="width:60px">单位</th><th style="width:120px">主件/子件</th><th style="width:90px;color:#5eead4">可用库存</th><th style="width:90px;color:#fbbf24">可用在制</th><th style="width:100px">操作</th>' +
       '</tr></thead><tbody>';
     detailData.rows.forEach(x => {
       const subCode = x.sub_part || '';
       const hasChild = !!x.has_children;
+      const stock = Number(x.available_stock || 0);
+      const wip = Number(x.available_wip || 0);
+      const stockCls = stock < 0 ? 'net-positive' : 'supply-value';
+      const wipCls = wip < 0 ? 'net-positive' : 'supply-value';
       rowsHtml += '<tr>' +
         '<td>' + htmlEsc(x.seq || '-') + '</td>' +
         '<td><code class="bom-link-detail ' + (hasChild ? '' : 'leaf') + '" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(subCode) + '" title="' + (hasChild ? '点击展开下一层' : '叶子物料,无下阶') + '">' + htmlEsc(subCode) + '</code></td>' +
@@ -820,6 +983,8 @@ function renderBomDetail() {
         '<td>' + fmtQty(x.qty) + '</td>' +
         '<td>' + htmlEsc(x.issue_uom || '') + '</td>' +
         '<td>' + htmlEsc(x.main_type || '') + ' / ' + htmlEsc(x.sub_type || '') + '</td>' +
+        '<td class="' + stockCls + '">' + fmtQty(stock) + '</td>' +
+        '<td class="' + wipCls + '">' + fmtQty(wip) + '</td>' +
         '<td>' + (hasChild ? '<button class="bom-open-detail" data-site="' + htmlEsc(detailCurrentSite) + '" data-part="' + htmlEsc(subCode) + '">↳ 展开下一级</button>' : '<span style="color:#64748b;font-size:10px">叶子</span>') + '</td>' +
         '</tr>';
     });
@@ -937,6 +1102,7 @@ document.getElementById('bomPageSize').addEventListener('change', () => setBomPa
 document.getElementById('syncSample').addEventListener('click', () => startSync('sample'));
 document.getElementById('syncFull').addEventListener('click', () => startSync('full'));
 document.getElementById('calcPreview').addEventListener('click', () => loadMrpPreview(1));
+document.getElementById('exportCsv').addEventListener('click', exportMrpCsv);
 document.getElementById('mrpSite').addEventListener('change', () => loadMrpPreview(1));
 document.getElementById('mrpBomFilter').addEventListener('change', () => loadMrpPreview(1));
 document.getElementById('mrpShortageFilter').addEventListener('change', () => loadMrpPreview(1));
@@ -953,6 +1119,53 @@ document.querySelectorAll('.sort-btn').forEach(button => button.addEventListener
 }));
 
 // 列头点击排序 (委托给 result 容器,避免每次重渲染都要重新绑定)
+// 导出当前可见的净需求表为 CSV
+function exportMrpCsv() {
+  if (!mrpLastData || !mrpLastData.rows || mrpLastData.rows.length === 0) {
+    alert('暂无数据,请先点击 [计算净需求预览] 按钮');
+    return;
+  }
+  const headers = ['料号', '品名', '规格', '毛需求', '安全库存', '可用库存', '可用在制', '特殊供给', '净需求', '在途', '在验', '下阶数', '是否有下阶'];
+  const rows = mrpLastData.rows.map(x => [
+    x.part_no || '',
+    x.name || '',
+    x.spec || '',
+    x.gross_demand || 0,
+    x.safety_stock || 0,
+    x.available_stock || 0,
+    x.available_wip || 0,
+    x.special_supply || 0,
+    x.net_demand || 0,
+    x.in_transit || 0,
+    x.inspecting || 0,
+    x.bom_count || 0,
+    x.has_bom ? '是' : '否',
+  ]);
+  // CSV 转义: 含逗号/引号/换行的单元格用双引号包裹
+  const esc = v => {
+    const s = String(v);
+    // 不使用 regex,改用 indexOf + String.fromCharCode
+    if (s.indexOf('"') >= 0 || s.indexOf(String.fromCharCode(10)) >= 0 || s.indexOf(',') >= 0) {
+      return '"' + s.split('"').join('""') + '"';
+    }
+    return s;
+  };
+  // \u4E0D\u4F7F\u7528 \u200B (\u5B57\u9762 BOM \u5728 <script> \u6807\u7B7E\u5185\u4F1A\u8BA9\u6D4F\u89C8\u5668 JS parser \u62A5\u9519)
+  // \u6539\u7528 \\u200B \u96F6\u5BBD\u7A7A\u683C\u4F5C\u4E3A CSV BOM \u6807\u8BB0
+  // CSV 开头加 \u200B (UTF-8 BOM) 让 Excel 正确识别中文
+  // 用 escape 而非字面字符 — 避免 <script> 内 JS parser 出错
+  // CSV 无 BOM 前缀(避免 <script> 内 JS parser 报错; Excel 自动识别 UTF-8)
+  const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join(String.fromCharCode(10));
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = url; a.download = "MRP-" + (mrpLastData.site || "all") + "-" + ts + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
 document.getElementById('mrpResult').addEventListener('click', e => {
   const th = e.target.closest && e.target.closest('.sortable-th');
   if (!th || !th.dataset.sort) return;
@@ -1435,9 +1648,13 @@ async function handleAdmin(req: http.IncomingMessage, res: http.ServerResponse, 
             const [rows] = await conn.query(
                 `SELECT b.sub_part,b.qty,b.main_type,b.sub_type,b.issue_uom,b.seq,
                         i.name,i.spec,
+                        COALESCE(r.qty,0) available_stock,
+                        COALESCE(w.qty,0) available_wip,
                         EXISTS(SELECT 1 FROM raw_bom child WHERE child.site=b.site AND child.main_part=b.sub_part LIMIT 1) has_children
                  FROM raw_bom b
                  LEFT JOIN raw_items i ON i.site=b.site AND i.part_no=b.sub_part AND i.lang='zh_CN'
+                 LEFT JOIN (SELECT site,part_no,SUM(qty) qty FROM raw_remain GROUP BY site,part_no) r ON r.site=b.site AND r.part_no=b.sub_part
+                 LEFT JOIN (SELECT site,part_no,SUM(qty) qty FROM raw_cj      GROUP BY site,part_no) w ON w.site=b.site AND w.part_no=b.sub_part
                  WHERE b.site=? AND b.main_part=?
                  ORDER BY CAST(b.seq AS UNSIGNED),b.seq,b.sub_part
                  LIMIT ${pageSize} OFFSET ${offset}`,
